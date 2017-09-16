@@ -1,0 +1,185 @@
+###########################################################################
+FILE: Header1.asm, Header2.asm, Header3.asm
+ARGUMENTS: 10 50 100 200 4 WeLoveMIPS!
+
+EXPECTED OUTPUT:
+ERROR
+###########################################################################
+FILE: Header1.asm, Header2.asm, Header3.asm
+ARGUMENTS: 10 
+
+EXPECTED OUTPUT:
+ERROR
+###########################################################################
+FILE: Header1.asm, Header2.asm, Header3.asm
+ARGUMENTS: 1000 50 100 200 40 WeLoveMIPS!
+
+EXPECTED OUTPUT:
+ERROR
+###########################################################################
+FILE: Header1.asm
+ARGUMENTS: 10 50 100 200 24 WeLoveMIPS!
+
+EXPECTED OUTPUT:
+Unsupported:IPv10
+33,52445,255,170
+130.245.186.10
+0x0a3264c8
+00000000000000000000000000000111,00010000000000010000000110001010
+0x10010000,0x10010023
+
+MODIFIED MEMORY AT LABEL Header:
+0x46210023
+0xccdd8018
+0xffaac11f
+0x82f5ba0a
+0x0a3264c8
+0xffffffff
+0x6f4c6557
+0x494d6576
+0xff215350
+0xffffffff
+...
+0xffffffff
+###########################################################################
+FILE: Header2.asm
+ARGUMENTS: 10 50 100 200 24 WeLoveMIPS!
+
+EXPECTED OUTPUT:
+Unsupported:IPv7
+240,43707,100,204
+127.0.8.1
+0x0a3264c8
+00000000000000000000000000000110,00010000000000010000000110001010
+0x10010000,0x1001001f
+
+MODIFIED MEMORY AT LABEL Header:
+0x45f0001f
+0xaabb8018
+0x64cc3454
+0x7f000801
+0x0a3264c8
+0x6f4c6557
+0x494d6576
+0xff215350
+0xffffffff
+...
+0xffffffff
+###########################################################################
+FILE: Header3.asm
+ARGUMENTS: 10 50 100 200 24 WeLoveMIPS!
+
+EXPECTED OUTPUT:
+IPv4
+170,6168,255,128
+10.10.165.25
+0x0a3264c8
+00000000000000000000000000000001,00010000000000010000000110001110
+0x10010000,0x10010023
+
+MODIFIED MEMORY AT LABEL Header:
+0x46aa0023
+0x18188018
+0xff80cde9
+0x0a0aa519
+0x0a3264c8
+0x789abcde
+0x6f4c6557
+0x494d6576
+0xff215350
+0xffffffff
+...
+0xffffffff
+###########################################################################
+FILE: Header3.asm
+ARGUMENTS: 130 186 1 1 -1 220Rocks
+
+EXPECTED OUTPUT:
+IPv4
+170,6168,255,128
+10.10.165.25
+0x82ba0101
+00000000000000000000000000000001,00010000000000010000000110001110
+0x10010000,0x10010020
+
+MODIFIED MEMORY AT LABEL Header:
+0x46aa0023
+0x18188018
+0xff80f943
+0x0a0aa519
+0x82ba0101
+0x789abcde
+0x52303232
+0x736b636f
+0xffffffff
+...
+0xffffffff
+###########################################################################
+FILE: Header2.asm
+ARGUMENTS: 130 186 1 1 0 220Rocks
+
+EXPECTED OUTPUT:
+Unsupported:IPv7
+240,43707,100,204
+127.0.8.1
+0x82ba0101
+00000000000000000000000000000110,00010000000000010000000110001010
+0x10010000,0x1001001c
+
+MODIFIED MEMORY AT LABEL Header:
+0x45f0001f
+0xaabb0000
+0x64cc9fae
+0x7f000801
+0x82ba0101
+0x52303232
+0x736b636f
+0xffffffff
+...
+0xffffffff
+
+
+###########################################################################
+FILE: Header2.asm
+ARGUMENTS: 255 254 253 252 32  thisisareallylongtestwiththepayloadasaamuchbiggervaluethanbefore!@#$%^&*()_+-=,./<>?:{}|\
+
+EXPECTED OUTPUT:
+Unsupported:IPv7
+240,43707,100,204
+127.0.8.1
+0xfffefdfc
+00000000000000000000000000000110,00010000000000010000000110001010
+0x10010000,0x1001006d
+
+MODIFIED MEMORY AT LABEL Header:
+0x45f0001f
+0xaabb8020
+0x64cc14fc
+0x7f000801
+0xfffefdfc
+0x73696874
+0x72617369
+0x6c6c6165
+0x6e6f6c79
+0x73657467
+0x74697774
+0x65687468
+0x6c796170
+0x6164616f
+0x6d616173
+0x62686375
+0x65676769
+0x6c617672
+0x68746575
+0x65626e61
+0x65726f66
+0x24234021
+0x2a265e25
+0x2b5f2928
+0x2e2c3d2d
+0x3f3e3c2f
+0x7c7d7b3a
+0xffffff5c
+0xffffffff
+...
+0xffffffff
