@@ -3,7 +3,29 @@
 # Net ID: erpeterson
 # SBU ID: 108509452
 
-	
+# Helper macro for accessing command line arguments via label
+.macro load_args
+	sw $a0, numargs
+	lw $t0, 0($a1)
+	sw $t0, AddressOfIPDest3
+	lw $t0, 4($a1)
+	sw $t0, AddressOfIPDest2
+	lw $t0, 8($a1)
+	sw $t0, AddressOfIPDest1
+	lw $t0, 12($a1)
+	sw $t0, AddressOfIPDest0
+	lw $t0, 16($a1)
+	sw $t0, AddressOfBytesSent
+	lw $t0, 20($a1)
+	sw $t0, AddressOfPayload
+.end_macro
+
+.text
+.globl main
+
+main:
+	load_args()	# Only do this once!
+	# Start writing the program after the load-args macro is called	
 	
 	
 	
@@ -37,22 +59,7 @@
 	
 	newline: .asciiz "\n"
 	
-# Helper macro for accessing command line arguments via label
-.macro load_args
-	sw $a0, numargs
-	lw $t0, 0($a1)
-	sw $t0, AddressOfIPDest3
-	lw $t0, 4($a1)
-	sw $t0, AddressOfIPDest2
-	lw $t0, 8($a1)
-	sw $t0, AddressOfIPDest1
-	lw $t0, 12($a1)
-	sw $t0, AddressOfIPDest0
-	lw $t0, 16($a1)
-	sw $t0, AddressOfBytesSent
-	lw $t0, 20($a1)
-	sw $t0, AddressOfPayload
-.end_macro
+
 	
 	
 	
