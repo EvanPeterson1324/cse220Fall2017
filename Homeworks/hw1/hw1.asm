@@ -44,30 +44,27 @@
 	li $v1, 0	# init $v1 = 0 to avoid junk
 	li $t0, 0	# count
 	
-	
-	
-	la $a0, AddressOfIPDest0	# load the Addr
-	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
-	add $t0, $t0, $v1		# add the value of $v1 to the count
-	
-	la $a0, AddressOfIPDest1	# load the Addr
+	la $a0, AddressOfIPDest3	# load the Addr
+	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
 	la $a0, AddressOfIPDest2	# load the Addr
+	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
-	la $a0, AddressOfIPDest3	# load the Addr
+	la $a0, AddressOfIPDest1	# load the Addr
+	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
-	bnez $t0, callPrintErrStr	# if the count isnt zero, we know something failed so print err and terminate
+	la $a0, AddressOfIPDest0	# load the Addr
+	lw $a0, 0($a0)			# test
+	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
+	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
-	
-	
-	
-	
+	bnez $t0, callPrintErrStr	# if the count isnt zero, we know something failed so print err and terminate:
 .end_macro	
 
 .text
