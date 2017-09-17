@@ -35,37 +35,56 @@
 .end_macro
 
 # Helper macro for validating the integer values of the IPDest arguments
-	# Remember that $a1 should still have the value of the starting address for our array of strings!
-	# So we can actually loop over these addresses instead of doing them 1 by 1
-# Where do the value
-
 .macro validateIPDestArgs
-	li $v0, 84	# Tells the system to use "atoi"
+	
 	li $v1, 0	# init $v1 = 0 to avoid junk
 	li $t0, 0	# count
 	
+	li $v0, 84	# Tells the system to use "atoi"
 	la $a0, AddressOfIPDest3	# load the Addr
 	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
+	li $v0, 84	# Tells the system to use "atoi"
 	la $a0, AddressOfIPDest2	# load the Addr
 	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
+	li $v0, 84	# Tells the system to use "atoi"
 	la $a0, AddressOfIPDest1	# load the Addr
 	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
+	li $v0, 84	# Tells the system to use "atoi"
 	la $a0, AddressOfIPDest0	# load the Addr
 	lw $a0, 0($a0)			# test
 	syscall				# converts to int value, $v1 = 0 if success, -1 if failure
 	add $t0, $t0, $v1		# add the value of $v1 to the count
 	
 	bnez $t0, callPrintErrStr	# if the count isnt zero, we know something failed so print err and terminate:
-.end_macro	
+.end_macro
+
+# Validate the Bytes sent arg
+.macro validateBytesSentArg
+	li $v0, 84			# Tells the system to use "atoi"
+	la $a0, AddressOfBytesSent	# get the address of the string address
+	lw $a0, 0($a0)			# get the pointer to the str address
+	syscall				# call to atoi
+	
+	bnez $v1, callPrintErrStr	# if we failed, print err string and terminate the program
+	li $t0, 8191			# upper bound for atoi value
+	li $t1, -1			# lower bound for atoi value
+	
+	bgt $v0, $t0, callPrintErrStr	# above the upper bound so print err and terminate
+	blt $v0, $t1, callPrintErrStr	# below the lower bound so print err and terminate
+	li $t2, 8			# $t2 = 8
+	div $v0, $t2			# divide value from atoi by 8
+	mfhi $t2			# move remainder into $t2 
+	bnez $t2, callPrintErrStr	# not a multiple of 8 so print err and terminate
+.end_macro 	
 
 .text
 .globl main
@@ -83,7 +102,7 @@ main:
 	
 	# Check the strings for each of the IPDest arguments
 	validateIPDestArgs()	# Helper macro
-	
+	validateBytesSentArg()  # Helper macro
 	
 	
 	
