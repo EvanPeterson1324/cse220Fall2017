@@ -105,14 +105,6 @@ main:
 	validateBytesSentArg()  # Helper macro
 	
 	
-	
-	
-	
-	
-	
-	
-	
-	
 	# Terminate the program
 	li $v0, 10
 	syscall
