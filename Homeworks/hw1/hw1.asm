@@ -100,9 +100,41 @@ main:
 	# Check if the cmd line args == 6
 	bne $t0, $t1, callPrintErrStr	# if $t0 != 6, call the printErrStr macro and terminate the program
 	
-	# Check the strings for each of the IPDest arguments
+	# Helper macro: Check the strings for each of the IPDest arguments
 	validateIPDestArgs()	# Helper macro
-	validateBytesSentArg()  # Helper macro
+	
+	# Helper macro: Check the strings for the BytesSent argument
+	validateBytesSentArg()
+	###--- Validate Version ---###
+	# $t0 = address of first packet byte
+	# $t1 = 3rd byte of the packet
+	# $t2 = 4
+	# $t3 = Packet Version
+	# $t4 = Header Length
+	la $t0, Header				# Load the address of the first byte into $t0
+	lbu $t1, 3($t0)				# Load the 3rd byte of the packet
+	li $t2, 4				# Immediate to check the version number
+	srl $t3, $t1, 4				# Shift right 4 bits so we get the correct value for Packet Version
+	andi $t4, $t1, 1111			# Bitwise AND to get the last 4 bits  (Header Length)
+	srl $t4, $t4, 4
+	bne $t3, $t2, unsupportedVersion	# if the Version Number is NOT 4, branch
+	
+	la $a0, IPv4_string			# Load the address of the string we want to print
+	li $v0, 4				# Print String
+	syscall
+	j afterVersionCheck			# jump to the next operation
+	
+	unsupportedVersion:			# if the version is not 4, lets print out the string
+	la $a0, IPv4_unsupported_string		# load the address of the IPv_ unsupported string 
+	li $v0, 4
+	###### Now we need to replace the '_' in the string with the version number that was given" ######
+	syscall
+	
+	# Replace the unsupported version number with "4"
+	sll $t3, $t2, 4	
+	or $t5, $t3, $t4
+
+	afterVersionCheck:
 	
 	
 	# Terminate the program
@@ -119,7 +151,7 @@ main:
 .data
 
 # Include the file with the test case information
-.include "./sample_asm/Header2.asm" 			# Change this line to test with other inputs
+.include "../sample_asm/Header2.asm" 			# Change this line to test with other inputs
 
 .align 2
 	numargs: .word 0
@@ -131,7 +163,8 @@ main:
 	AddressOfPayload: .word 0
 	
 	Err_string: .asciiz "ERROR\n"
-	
+	IPv4_string: .asciiz "IPv4\n"
+	IPv4_unsupported_string: .asciiz "Unsupported: IPv_\n"
 	newline: .asciiz "\n"
 	
 
