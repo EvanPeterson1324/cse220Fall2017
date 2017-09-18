@@ -127,14 +127,181 @@ main:
 	unsupportedVersion:			# if the version is not 4, lets print out the string
 	la $a0, IPv4_unsupported_string		# load the address of the IPv_ unsupported string 
 	li $v0, 4
-	###### Now we need to replace the '_' in the string with the version number that was given" ######
+	syscall
+	move $a0, $t3				# move the version number into the $a0 register
+	li $v0, 1				# print int
 	syscall
 	
+	la $a0, newline				# load newline address
+	li $v0, 4				# print newline
+	syscall
 	# Replace the unsupported version number with "4"
-	sll $t3, $t2, 4	
+	sll $t3, $t2, 4
 	or $t5, $t3, $t4
+	sb $t5, 3($t0)			# store the new value into the byte
+	
 
 	afterVersionCheck:
+	la $t0, Header				# Load the address of the first byte into $t0
+	lw $t1, 0($t0)				# Load the word containing the Type of service
+	sll $t1, $t1, 8				
+	srl $s0, $t1, 24			# $s0 = type_of_service
+	
+	lw $t1, 4($t0)
+	srl $s1, $t1, 16			# $s1 = identifier
+	
+	lbu $s2, 11($t0)			# $s2 = time to live
+	lbu $s3, 10($t0)			# $s3 = protocol
+	
+	li $v0, 1
+	move $a0, $s0				# print type of service
+	syscall
+	
+	li $v0, 4				# print comma
+	la $a0, comma
+	syscall
+	
+	li $v0, 1
+	move $a0, $s1				# print identifier
+	syscall
+	
+	li $v0, 4				# print comma
+	la $a0, comma
+	syscall
+	
+	li $v0, 1
+	move $a0, $s2				# print time to live
+	syscall
+	
+	li $v0, 4				# print comma
+	la $a0, comma
+	syscall
+	
+	li $v0, 1
+	move $a0, $s2				# print protocol
+	syscall
+	
+	li $v0, 4				# print newline
+	la $a0, newline	
+	syscall
+	
+	# Printing the value of source IP
+	la $t0, Header
+	lbu $t1, 12($t0)
+	lbu $t2, 13($t0)
+	lbu $t3, 14($t0)
+	lbu $t4, 15($t0)
+	
+	li $v0, 1
+	move $a0, $t4				# print IPSrc3
+	syscall
+	
+	li $v0, 4				# print period
+	la $a0, period
+	syscall
+	
+	li $v0, 1
+	move $a0, $t3				# print IPSrc2
+	syscall
+	
+	li $v0, 4				# print period
+	la $a0, period
+	syscall
+	
+	li $v0, 1
+	move $a0, $t2				# print IPSrc1
+	syscall
+	
+	li $v0, 4				# print period
+	la $a0, period
+	syscall
+	
+	li $v0, 1
+	move $a0, $t1				# print IPSrc0
+	syscall
+	
+	li $v0, 4				# print newline
+	la $a0, newline
+	syscall
+	
+	# Store the value of the Destination IP Address field
+	
+	la $t3, AddressOfIPDest3	# load the Addr
+	li $v0, 84
+	lw $a0, 0($t3)
+	syscall
+	move $t3, $v0			# move the value into $t3
+	
+	la $t2, AddressOfIPDest2	# load the Addr
+	li $v0, 84
+	lw $a0, 0($t2)
+	syscall
+	move $t2, $v0			# move the value into $t2
+	
+	la $t1, AddressOfIPDest1	# load the Addr
+	li $v0, 84
+	lw $a0, 0($t1)
+	syscall
+	move $t1, $v0			# move the value into $t1
+	
+	la $t0, AddressOfIPDest0	# load the Addr
+	li $v0, 84
+	lw $a0, 0($t0)
+	syscall
+	move $t0, $v0			# move the value into $t0
+	
+	# Print IPDest3
+	li $v0, 1
+	move $a0, $t3
+	syscall
+	
+	# Print Period
+	li $v0, 4
+	la $a0, period
+	syscall
+	
+	# Print IPDest2
+	li $v0, 1
+	move $a0, $t2
+	syscall
+	
+	# Print Period
+	li $v0, 4
+	la $a0, period
+	syscall
+	
+	# Print IPDest1
+	li $v0, 1
+	move $a0, $t1
+	syscall
+	
+	# Print Period
+	li $v0, 4
+	la $a0, period
+	syscall
+	
+	# Print IPDest0
+	li $v0, 1
+	move $a0, $t0
+	syscall
+	
+	# Print Newline
+	li $v0, 4
+	la $a0, newline
+	syscall
+	
+	
+	
+	
+	
+	
+	sll $t3, $t3, 24
+	sll $t2, $t2, 16
+	sll $t1, $t1, 8
+	
+	or $t4, $t0, $t1
+	or $t4, $t4, $t2
+	or $t4, $t4, $t3
 	
 	
 	# Terminate the program
@@ -164,7 +331,9 @@ main:
 	
 	Err_string: .asciiz "ERROR\n"
 	IPv4_string: .asciiz "IPv4\n"
-	IPv4_unsupported_string: .asciiz "Unsupported: IPv_\n"
+	IPv4_unsupported_string: .asciiz "Unsupported:IPv"
+	comma: .asciiz ","
+	period: .asciiz "."
 	newline: .asciiz "\n"
 	
 
