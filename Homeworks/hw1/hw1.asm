@@ -250,51 +250,6 @@ main:
 	syscall
 	move $t0, $v0			# move the value into $t0
 	
-	# Print IPDest3
-	li $v0, 1
-	move $a0, $t3
-	syscall
-	
-	# Print Period
-	li $v0, 4
-	la $a0, period
-	syscall
-	
-	# Print IPDest2
-	li $v0, 1
-	move $a0, $t2
-	syscall
-	
-	# Print Period
-	li $v0, 4
-	la $a0, period
-	syscall
-	
-	# Print IPDest1
-	li $v0, 1
-	move $a0, $t1
-	syscall
-	
-	# Print Period
-	li $v0, 4
-	la $a0, period
-	syscall
-	
-	# Print IPDest0
-	li $v0, 1
-	move $a0, $t0
-	syscall
-	
-	# Print Newline
-	li $v0, 4
-	la $a0, newline
-	syscall
-	
-	
-	
-	
-	
-	
 	sll $t3, $t3, 24
 	sll $t2, $t2, 16
 	sll $t1, $t1, 8
@@ -303,6 +258,16 @@ main:
 	or $t4, $t4, $t2
 	or $t4, $t4, $t3
 	
+	la $t5, Header				# Load the address of the first byte into $t0
+	sw $t4, 16($t5)				# save the dest reg to memory
+	
+	li $v0, 34
+	move $a0, $t4
+	syscall
+	
+	li $v0, 4
+	la $a0, newline
+	syscall
 	
 	# Terminate the program
 	li $v0, 10
