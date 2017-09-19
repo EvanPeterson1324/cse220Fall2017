@@ -274,6 +274,7 @@ main:
 	la $t0, AddressOfPayload	# load the address of the payload
 	li $t1, '\0'			# stopping condition
 	
+	### FIX THIS ######
 	numPayloadBytesLoop:
 	lbu $t3, 0($t0)				# load the next byte
 	beqz $t3, stopNumPayloadBytesLoop	# if the null terminator is found, break out of the loop
@@ -282,6 +283,19 @@ main:
 	j numPayloadBytesLoop			# loop again
 	
 	stopNumPayloadBytesLoop:
+	# load the value from the header length
+	la $t0, Header		# load header starting address
+	lbu $t1, 3($t0)		# load the 3rd byte
+	sll $t1, $t1, 28	# get rid of the 4 upper bits
+	srl $t1, $t1, 28	# get rid of the 4 upper bits
+	add $t2, $t1, $s0	# payload bytes + header length
+	sb  $t2, 0($t0)		# the total length field
+	
+	
+	
+	
+	
+	
 	
 	
 	
