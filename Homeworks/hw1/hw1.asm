@@ -269,6 +269,30 @@ main:
 	la $a0, newline
 	syscall
 	
+	# Use a loop to calc the number of bytes for the Payload arg
+	li $s0, 0			# Init the counter to 0, $s0 = number of bytes for the payload arg
+	la $t0, AddressOfPayload	# load the address of the payload
+	li $t1, '\0'			# stopping condition
+	
+	numPayloadBytesLoop:
+	lbu $t3, 0($t0)				# load the next byte
+	beqz $t3, stopNumPayloadBytesLoop	# if the null terminator is found, break out of the loop
+	addi $t0, $t0, 4			# we will continue so go to the next byte
+	addi $s0, $s0, 1			# increment count by 1
+	j numPayloadBytesLoop			# loop again
+	
+	stopNumPayloadBytesLoop:
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	# Terminate the program
 	li $v0, 10
 	syscall
