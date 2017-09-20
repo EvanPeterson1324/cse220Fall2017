@@ -394,6 +394,55 @@ main:
 	la $a0, newline
 	syscall
 	
+	# checksum
+	# To calculate the checksum, we can first calculate the sum of each 16 bit value within the header, 
+	# skipping only the checksum field itself.
+	
+	# grab all the values of the header and add them together, except the checksum
+	la $t0, Header		# load the address of the header
+	move $t1, $t0		# this value will be incremented to get the next word
+	li $t2, 1		# count
+	li $t3, 0		# sum
+	lbu $t4, 3($t0)		# load the byte with the header length in it
+	andi $t4, $t4, 15 	# get only the header length!
+	
+	checksumAddLoop:
+	bgt $t2, $t4, endCheckSumAddLoop		# if the counter is greater than the header length, break the loop
+	lw $t5, 0($t1)					# value of the current word
+	beq $t2, 2, foundCheckSumWord			# dont add the checksum value!
+	lhu $t6, 0($t1)					# load the lower 16 bits
+	add $t3, $t3, $t6				# add the 2nd 16 bit value
+	foundCheckSumWord:
+	andi $t7, $t5, 4294901760			# keep the upper 16 bits
+	srl $t7, $t7, 16				# shift 16 bits to the right to get proper value
+	add $t3, $t3, $t7				# add the 1st 16 bit value
+	
+	addi $t1, $t1, 4				# go to the next word
+	addi $t2, $t2, 1				# increment the count by 1
+	j checksumAddLoop
+	
+	endCheckSumAddLoop:
+	# first 4 bits are the carry which we add to the sum
+	move $s0, $t3		  # the value of the sum
+	
+	
+	checkSumEndAroundCarryLoop:
+	andi $t1, $s0, 65535		  		# keep the lower 16 bits
+	andi $t2, $s0, 4294901760 			# get the upper 16 bits
+	srl $t2, $t2, 16				# shift bits down to get correct value
+	beqz $t2, endCheckSumEndAroundCarryLoop	# if the upper 16 bits are zero, stop looping
+	add $s0, $t1, $t2			# add the carry to the sum
+	j checkSumEndAroundCarryLoop		# loop-DEE-loop
+	
+	endCheckSumEndAroundCarryLoop:
+	# save the checksum value
+	la $t0, Header		# load the starting address of the header
+	lw $t1, 8($t0)		# load the word with the checksum
+	andi $t1, $t1, 4294901760	# keep the upper 16 bits
+	add $t1, $t1, $s0	# add the checksum to the lower 16 bits
+	sw $t1, 8($t0)		# store the updated checksum!
+	
+	
 	
 	
 	
@@ -417,7 +466,7 @@ main:
 .data
 
 # Include the file with the test case information
-.include "../sample_asm/Header2.asm" 			# Change this line to test with other inputs
+.include "../sample_asm/Header3.asm" 			# Change this line to test with other inputs
 
 .align 2
 	numargs: .word 0
