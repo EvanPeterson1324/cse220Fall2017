@@ -372,12 +372,27 @@ main:
 	beqz $t4 stopStorePayloadBytesLoop		# if the null terminator is found, break out of the loop
 	sb $t4, 0($t1)					# save the byte from the payload into the memory AFTER the header
 	addi $t0, $t0, 4				# we will continue so go to the next byte
-	j storePayloadBytesLoop			# loop again
+	addi $t1, $t1, 4				# go to the next byte in memory
+	j storePayloadBytesLoop				# loop again
 	
 	stopStorePayloadBytesLoop:
 	
+	# print the starting address of the header in HEX
+	la $a0, Header
+	li $v0, 34
+	syscall
 	
+	li $v0, 4				# print comma
+	la $a0, comma
+	syscall
 	
+	move $a0, $t1			# print the last location in memory
+	li $v0, 34
+	syscall
+	
+	li $v0, 4				# print newline
+	la $a0, newline
+	syscall
 	
 	
 	
