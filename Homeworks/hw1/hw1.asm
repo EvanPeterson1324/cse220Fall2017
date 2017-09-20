@@ -291,8 +291,71 @@ main:
 	add $t2, $t1, $s0	# payload bytes + header length
 	sb  $t2, 0($t0)		# the total length field
 	
+	# print the Flags field and the Fragment offset field in binary(Syscall 35)
+	la $t0, Header	# load the header
+	lbu $t1, 5($t0)	# load the 6th byte
+	srl $t2, $t1, 5	# get rid of lower 5 bits to get the Flags field
+	
+	li $v0, 35
+	move $a0, $t2	# print the binary value of the flags
+	syscall
+	
+	li $v0, 4
+	la $a0, comma	# print a comma
+	syscall
 	
 	
+	lhu $t3, 4($t0)	# get the fragment offset
+	sll $t3, $t3, 19 # get rid of upper bits
+	srl $t3, $t3, 19 # same
+	
+	li $v0, 35
+	move $a0, $t3	# print the binary value of the flags
+	syscall
+	
+	li $v0, 4
+	la $a0, newline	# print newline
+	syscall
+	
+	la $t0, AddressOfBytesSent 	# Get the bytes sent address
+	lbu $t1, 0($t0)			# number of bytes sent
+	li $t2, -1			# load -1
+	beq $t1, $t2 bytesSentNegOne
+	beqz $t1, bytesSentZero
+	j bytesSentGreater
+							
+	# if bytes sent == 0, set flag field to 0 and fragment offset to 0
+	bytesSentZero:
+	lw $t3, 4($t0)		# load the word
+	srl $t4,$t3, 16		# gets rid of anything that was in the flag and fragment offset
+	sll $t4, $t4, 16	# maintain the upper 16 bits of the word in $t4
+	sw $t4, 4($t0)		# save the word in memory
+	j afterBytesSent
+	
+	# if bytes sent == -1, set flag field to 2, fragment offset to 0
+	bytesSentNegOne:
+	lw $t3, 4($t0)
+	srl $t4,$t3, 16
+	sll $t4, $t4, 16	# maintain the upper 16 bits of the word in $t4
+	li $t5, 2		# load 4 into $t5
+	sll $t5, $t5, 13	# shift over 13 bits so we can add the fragment offset
+	add $t6, $t5, $t4	# add the upper 16 bits with the lower 16 to maintain the word
+	sw $t6, 4($t0)		# save the word in memory
+	j afterBytesSent
+	
+	# set the bits of the flag field to 100 (decimal value 4) and set the fragment offset to BytesSent.
+	bytesSentGreater:
+	lw $t3, 4($t0)		# load the 2nd word
+	srl $t4,$t3, 16
+	sll $t4, $t4, 16	# maintain the upper 16 bits of the word in $t4
+	
+	li $t5, 4		# load 4 into $t5
+	sll $t5, $t5, 13	# shift over 13 bits so we can add the fragment offset
+	add $t5, $t5, $t1	# add the flag field to the bytes sent
+	add $t6, $t5, $t4	# add the uppder 16 bits with the lower 16 to maintain the word
+	sw $t6, 4($t0)		# save the word in memory
+	
+	afterBytesSent:
 	
 	
 	
