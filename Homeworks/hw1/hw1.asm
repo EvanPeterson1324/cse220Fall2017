@@ -346,7 +346,7 @@ main:
 	# set the bits of the flag field to 100 (decimal value 4) and set the fragment offset to BytesSent.
 	bytesSentGreater:
 	lw $t3, 4($t0)		# load the 2nd word
-	srl $t4,$t3, 16
+	srl $t4,$t3, 16		# get rid of junk in the lower 16 bits
 	sll $t4, $t4, 16	# maintain the upper 16 bits of the word in $t4
 	
 	li $t5, 4		# load 4 into $t5
@@ -356,7 +356,25 @@ main:
 	sw $t6, 4($t0)		# save the word in memory
 	
 	afterBytesSent:
+	# save the payload argument into memory after the packet header!
 	
+	la $t0, AddressOfPayload	# load the address of the payload
+	la $t1, Header			# load the address of the header
+	lbu $t2, 3($t1)			# load the 4th byte
+	andi $t2, $t2, 15		# get the first 4 bits, $t2 is the header length
+	li $t3, 4			# multiplication
+	mul $t4, $t2, $t3		# header length * 4
+	add $t1,$t1, $t4		# header + header length * 4
+	
+	# Header + Header Length*4
+	storePayloadBytesLoop:
+	lbu $t4, 0($t0)					# load the next byte
+	beqz $t4 stopStorePayloadBytesLoop		# if the null terminator is found, break out of the loop
+	sb $t4, 0($t1)					# save the byte from the payload into the memory AFTER the header
+	addi $t0, $t0, 4				# we will continue so go to the next byte
+	j storePayloadBytesLoop			# loop again
+	
+	stopStorePayloadBytesLoop:
 	
 	
 	
