@@ -8,8 +8,10 @@
 	sw $a0, numargs
 	lw $t0, 0($a1)
 	sw $t0, AddressOfIPDest3
+	
 	lw $t0, 4($a1)
 	sw $t0, AddressOfIPDest2
+	
 	lw $t0, 8($a1)
 	sw $t0, AddressOfIPDest1
 	lw $t0, 12($a1)
@@ -84,6 +86,7 @@
 	div $v0, $t2			# divide value from atoi by 8
 	mfhi $t2			# move remainder into $t2 
 	bnez $t2, callPrintErrStr	# not a multiple of 8 so print err and terminate
+	move $s7, $v0			# $s7 has the bytes sent value
 .end_macro 	
 
 .text
@@ -116,7 +119,6 @@ main:
 	li $t2, 4				# Immediate to check the version number
 	srl $t3, $t1, 4				# Shift right 4 bits so we get the correct value for Packet Version
 	andi $t4, $t1, 1111			# Bitwise AND to get the last 4 bits  (Header Length)
-	srl $t4, $t4, 4
 	bne $t3, $t2, unsupportedVersion	# if the Version Number is NOT 4, branch
 	
 	la $a0, IPv4_string			# Load the address of the string we want to print
@@ -178,7 +180,7 @@ main:
 	syscall
 	
 	li $v0, 1
-	move $a0, $s2				# print protocol
+	move $a0, $s3				# print protocol
 	syscall
 	
 	li $v0, 4				# print newline
@@ -272,13 +274,12 @@ main:
 	# Use a loop to calc the number of bytes for the Payload arg
 	li $s0, 0			# Init the counter to 0, $s0 = number of bytes for the payload arg
 	la $t0, AddressOfPayload	# load the address of the payload
-	li $t1, '\0'			# stopping condition
 	
 	### FIX THIS ######
 	numPayloadBytesLoop:
 	lbu $t3, 0($t0)				# load the next byte
 	beqz $t3, stopNumPayloadBytesLoop	# if the null terminator is found, break out of the loop
-	addi $t0, $t0, 4			# we will continue so go to the next byte
+	addi $t0, $t0, 1			# we will continue so go to the next byte
 	addi $s0, $s0, 1			# increment count by 1
 	j numPayloadBytesLoop			# loop again
 	
@@ -288,6 +289,9 @@ main:
 	lbu $t1, 3($t0)		# load the 3rd byte
 	sll $t1, $t1, 28	# get rid of the 4 upper bits
 	srl $t1, $t1, 28	# get rid of the 4 upper bits
+	addi $s0, $s0, 1	# fix off by 1
+	li $t9, 4		# mult
+	mul $t1, $t1, $t9	# mult by 4	
 	add $t2, $t1, $s0	# payload bytes + header length
 	sb  $t2, 0($t0)		# the total length field
 	
@@ -305,7 +309,7 @@ main:
 	syscall
 	
 	
-	lhu $t3, 4($t0)	# get the fragment offset
+	lhu $t3, 4($t0)	 # get the fragment offset
 	sll $t3, $t3, 19 # get rid of upper bits
 	srl $t3, $t3, 19 # same
 	
@@ -317,8 +321,7 @@ main:
 	la $a0, newline	# print newline
 	syscall
 	
-	la $t0, AddressOfBytesSent 	# Get the bytes sent address
-	lbu $t1, 0($t0)			# number of bytes sent
+	move $t1, $s7			# move the bytes sent value
 	li $t2, -1			# load -1
 	beq $t1, $t2 bytesSentNegOne
 	beqz $t1, bytesSentZero
@@ -358,10 +361,10 @@ main:
 	afterBytesSent:
 	# save the payload argument into memory after the packet header!
 	
-	la $t0, AddressOfPayload	# load the address of the payload
+	lw $t0, AddressOfPayload	# load the address of the payload
 	la $t1, Header			# load the address of the header
-	lbu $t2, 3($t1)			# load the 4th byte
-	andi $t2, $t2, 15		# get the first 4 bits, $t2 is the header length
+	lb $t2, 3($t1)			# load the 4th byte
+	andi $t2, $t2, 0x0f		# get the first 4 bits, $t2 is the header length
 	li $t3, 4			# multiplication
 	mul $t4, $t2, $t3		# header length * 4
 	add $t1,$t1, $t4		# header + header length * 4
@@ -371,8 +374,8 @@ main:
 	lbu $t4, 0($t0)					# load the next byte
 	beqz $t4 stopStorePayloadBytesLoop		# if the null terminator is found, break out of the loop
 	sb $t4, 0($t1)					# save the byte from the payload into the memory AFTER the header
-	addi $t0, $t0, 4				# we will continue so go to the next byte
-	addi $t1, $t1, 4				# go to the next byte in memory
+	addi $t0, $t0, 1				# we will continue so go to the next byte
+	addi $t1, $t1, 1				# go to the next byte in memory
 	j storePayloadBytesLoop				# loop again
 	
 	stopStorePayloadBytesLoop:
@@ -386,6 +389,7 @@ main:
 	la $a0, comma
 	syscall
 	
+	addi $t1, $t1, 1		# fix off by 1 error
 	move $a0, $t1			# print the last location in memory
 	li $v0, 34
 	syscall
@@ -401,7 +405,7 @@ main:
 	# grab all the values of the header and add them together, except the checksum
 	la $t0, Header		# load the address of the header
 	move $t1, $t0		# this value will be incremented to get the next word
-	li $t2, 1		# count
+	li $t2, 0		# count
 	li $t3, 0		# sum
 	lbu $t4, 3($t0)		# load the byte with the header length in it
 	andi $t4, $t4, 15 	# get only the header length!
@@ -423,34 +427,23 @@ main:
 	
 	endCheckSumAddLoop:
 	# first 4 bits are the carry which we add to the sum
-	move $s0, $t3		  # the value of the sum
-	
+	move $s0, $t3		  			# the value of the sum
 	
 	checkSumEndAroundCarryLoop:
 	andi $t1, $s0, 65535		  		# keep the lower 16 bits
 	andi $t2, $s0, 4294901760 			# get the upper 16 bits
 	srl $t2, $t2, 16				# shift bits down to get correct value
-	beqz $t2, endCheckSumEndAroundCarryLoop	# if the upper 16 bits are zero, stop looping
-	add $s0, $t1, $t2			# add the carry to the sum
-	j checkSumEndAroundCarryLoop		# loop-DEE-loop
+	beqz $t2, endCheckSumEndAroundCarryLoop		# if the upper 16 bits are zero, stop looping
+	add $s0, $t1, $t2				# add the carry to the sum
+	j checkSumEndAroundCarryLoop			# loop-DEE-loop
 	
 	endCheckSumEndAroundCarryLoop:
 	# save the checksum value
-	la $t0, Header		# load the starting address of the header
-	lw $t1, 8($t0)		# load the word with the checksum
+	la $t0, Header			# load the starting address of the header
+	lw $t1, 8($t0)			# load the word with the checksum
 	andi $t1, $t1, 4294901760	# keep the upper 16 bits
-	add $t1, $t1, $s0	# add the checksum to the lower 16 bits
-	sw $t1, 8($t0)		# store the updated checksum!
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+	add $t1, $t1, $s0		# add the checksum to the lower 16 bits
+	sw $t1, 8($t0)			# store the updated checksum!
 	
 	# Terminate the program
 	li $v0, 10
@@ -466,7 +459,7 @@ main:
 .data
 
 # Include the file with the test case information
-.include "../sample_asm/Header3.asm" 			# Change this line to test with other inputs
+.include "../sample_asm/Header2.asm" 			# Change this line to test with other inputs
 
 .align 2
 	numargs: .word 0
