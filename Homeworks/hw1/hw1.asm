@@ -8,10 +8,8 @@
 	sw $a0, numargs
 	lw $t0, 0($a1)
 	sw $t0, AddressOfIPDest3
-	
 	lw $t0, 4($a1)
 	sw $t0, AddressOfIPDest2
-	
 	lw $t0, 8($a1)
 	sw $t0, AddressOfIPDest1
 	lw $t0, 12($a1)
@@ -79,7 +77,7 @@
 	bnez $v1, callPrintErrStr	# if we failed, print err string and terminate the program
 	li $t0, 8191			# upper bound for atoi value
 	li $t1, -1			# lower bound for atoi value
-	
+	beq $v0, $t1, isNegOne		# if neg 1, skip		
 	bgt $v0, $t0, callPrintErrStr	# above the upper bound so print err and terminate
 	blt $v0, $t1, callPrintErrStr	# below the lower bound so print err and terminate
 	li $t2, 8			# $t2 = 8
@@ -87,6 +85,8 @@
 	mfhi $t2			# move remainder into $t2 
 	bnez $t2, callPrintErrStr	# not a multiple of 8 so print err and terminate
 	move $s7, $v0			# $s7 has the bytes sent value
+	
+	isNegOne:
 .end_macro 	
 
 .text
@@ -118,7 +118,7 @@ main:
 	lbu $t1, 3($t0)				# Load the 3rd byte of the packet
 	li $t2, 4				# Immediate to check the version number
 	srl $t3, $t1, 4				# Shift right 4 bits so we get the correct value for Packet Version
-	andi $t4, $t1, 1111			# Bitwise AND to get the last 4 bits  (Header Length)
+	andi $t4, $t1, 0xf			# Bitwise AND to get the last 4 bits  (Header Length)
 	bne $t3, $t2, unsupportedVersion	# if the Version Number is NOT 4, branch
 	
 	la $a0, IPv4_string			# Load the address of the string we want to print
@@ -273,9 +273,8 @@ main:
 	
 	# Use a loop to calc the number of bytes for the Payload arg
 	li $s0, 0			# Init the counter to 0, $s0 = number of bytes for the payload arg
-	la $t0, AddressOfPayload	# load the address of the payload
+	lw $t0, AddressOfPayload	# load the address of the payload
 	
-	### FIX THIS ######
 	numPayloadBytesLoop:
 	lbu $t3, 0($t0)				# load the next byte
 	beqz $t3, stopNumPayloadBytesLoop	# if the null terminator is found, break out of the loop
@@ -289,11 +288,12 @@ main:
 	lbu $t1, 3($t0)		# load the 3rd byte
 	sll $t1, $t1, 28	# get rid of the 4 upper bits
 	srl $t1, $t1, 28	# get rid of the 4 upper bits
-	addi $s0, $s0, 1	# fix off by 1
+
 	li $t9, 4		# mult
 	mul $t1, $t1, $t9	# mult by 4	
 	add $t2, $t1, $s0	# payload bytes + header length
 	sb  $t2, 0($t0)		# the total length field
+	sb  $0, 1($t0)		# the total length field
 	
 	# print the Flags field and the Fragment offset field in binary(Syscall 35)
 	la $t0, Header	# load the header
@@ -389,7 +389,6 @@ main:
 	la $a0, comma
 	syscall
 	
-	addi $t1, $t1, 1		# fix off by 1 error
 	move $a0, $t1			# print the last location in memory
 	li $v0, 34
 	syscall
@@ -411,7 +410,7 @@ main:
 	andi $t4, $t4, 15 	# get only the header length!
 	
 	checksumAddLoop:
-	bgt $t2, $t4, endCheckSumAddLoop		# if the counter is greater than the header length, break the loop
+	beq $t2, $t4, endCheckSumAddLoop		# if the counter is greater than the header length, break the loop
 	lw $t5, 0($t1)					# value of the current word
 	beq $t2, 2, foundCheckSumWord			# dont add the checksum value!
 	lhu $t6, 0($t1)					# load the lower 16 bits
@@ -420,7 +419,6 @@ main:
 	andi $t7, $t5, 4294901760			# keep the upper 16 bits
 	srl $t7, $t7, 16				# shift 16 bits to the right to get proper value
 	add $t3, $t3, $t7				# add the 1st 16 bit value
-	
 	addi $t1, $t1, 4				# go to the next word
 	addi $t2, $t2, 1				# increment the count by 1
 	j checksumAddLoop
@@ -441,8 +439,11 @@ main:
 	# save the checksum value
 	la $t0, Header			# load the starting address of the header
 	lw $t1, 8($t0)			# load the word with the checksum
+	not $s0, $s0	
 	andi $t1, $t1, 4294901760	# keep the upper 16 bits
+	andi $s0, $s0, 0xffff
 	add $t1, $t1, $s0		# add the checksum to the lower 16 bits
+			
 	sw $t1, 8($t0)			# store the updated checksum!
 	
 	# Terminate the program
