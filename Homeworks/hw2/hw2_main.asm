@@ -41,7 +41,11 @@ _start:
 	li $v0, 4
 	la $a0, newline
 	syscall
-
+	
+	# Terminate after checking 1st function
+	li $v0, 10
+	syscall
+	
 	##################
 	# printStringArray
 	##################
