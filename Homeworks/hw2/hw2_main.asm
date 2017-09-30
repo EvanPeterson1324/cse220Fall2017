@@ -32,19 +32,17 @@ _start:
 	la $a0, FF
 	li $a1, 'F'
 	li $a2,	'B'
-	jal replace1st
+	#jal replace1st
 
 	# print return value
 	move $a0, $v0
 	li $v0, 1
-	syscall
+	#syscall
 	li $v0, 4
 	la $a0, newline
-	syscall
+	#syscall
 	
-	# Terminate after checking 1st function
-	li $v0, 10
-	syscall
+	
 	
 	##################
 	# printStringArray
@@ -61,6 +59,10 @@ _start:
 	syscall
 	li $v0, 4
 	la $a0, newline
+	syscall
+	
+	# Terminate after checking 2st function
+	li $v0, 10
 	syscall
 
 	##################
