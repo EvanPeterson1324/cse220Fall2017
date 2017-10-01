@@ -61,9 +61,7 @@ _start:
 	la $a0, newline
 	syscall
 	
-	# Terminate after checking 2st function
-	li $v0, 10
-	syscall
+	
 
 	##################
 	# verifyIPv4Checksum
@@ -77,6 +75,10 @@ _start:
 	syscall
 	li $v0, 4
 	la $a0, newline
+	syscall
+	
+	# Terminate after checking 3rd function
+	li $v0, 10
 	syscall
 
 	##################

@@ -144,13 +144,65 @@ printStringArray:
 	jr $ra
 
 verifyIPv4Checksum:
-    #Define your code here
-	############################################
-	# DELETE THIS CODE. Only here to allow main program to run without fully implementing the function
-	li $v0, -555
-	############################################
-    jr $ra
-
+	# $t0 = starting address of header
+	# $t1 = header length
+	move $t0, $a0		# starting address of header
+	lb $t1, 3($t0)		# load the byte containing the header length
+	andi $t1, $t1, 0xF	# get only the header length
+	
+	# lets get the ending address of the header
+	# $t2 = ending address of header
+	li $t2, 4
+	mul $t2, $t1, $t2 	# result of the header length * 4
+	add $t2, $t2, $t0	# get the endding address of the header
+	
+	li $t3, 0		# checksum
+	li $t4, 0		# current word
+	
+	verifyIPv4ChecksumLoop:
+	beq $t0, $t2, verifyIPv4ChecksumLoopEnd
+	lw $t4, 0($t0)			# load the current word
+	andi $t5, $t4, 0xFFFF		# lower half
+	andi $t6, $t4, 0xFFFF0000	# upper half
+	srl $t6, $t6, 16		# shift them over 16 bits
+	add $t7, $t5, $t6		# add them together
+	add $t3, $t3, $t7		# add to the checksum total	
+	addi $t0, $t0, 4		# go to the next word
+	j verifyIPv4ChecksumLoop
+	
+	verifyIPv4ChecksumLoopEnd:
+	# see if the checksum is >= 65536
+	move $t0, $t3					# move the checksum value into $t0
+	li $t9, 65536
+	blt  $t0, $t9, verifyIPv4ChecksumReturnZero	
+	# if we get here then we do an end around carry
+	verifyIPv4ChecksumEndAroundCarryLoop:
+	andi $t1, $t0, 0xFFFF		# lower 16 bits
+	andi $t2, $t0, 0xFFFF0000	# upper 16 bits
+	srl $t2, $t2, 16		# shift them over 16 bits
+	add $t3, $t1, $t2		# add them together
+	andi $t4, $t3, 0xFFFF0000
+	beqz $t4, verifyIPv4ChecksumEndAroundCarryLoopEnd
+	move $t0, $t3		# move the checksum into $t0 for the next iteration
+	j verifyIPv4ChecksumEndAroundCarryLoop
+	
+	verifyIPv4ChecksumEndAroundCarryLoopEnd:
+	not $t4, $t3				# flip the bits
+	andi $t4, $t4, 0xFFFF			# get rid of upper 16
+	beqz $t4, verifyIPv4ChecksumReturnZero	# if the result is zero then we are good
+	
+	# if its not zero, return the checksum value we got
+	move $v0, $t3
+	j verifyIPv4ChecksumReturnJr	# return
+	
+	verifyIPv4ChecksumReturnZero:
+	li $v0, 0	# all good so return zero
+	j verifyIPv4ChecksumReturnJr
+	
+	verifyIPv4ChecksumReturnJr:
+	jr $ra
+	
+	#### REMEMBER TO CHECK TO SEE IF THE LAST ADDRESS IS IN THE HEADER OR NOT! (DO WE INCLUDE IT IN THE CHECKSUM?) ########
 ##############################
 # PART 2 FUNCTIONS
 ##############################
