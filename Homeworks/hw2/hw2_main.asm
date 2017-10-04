@@ -25,62 +25,6 @@ packetNumber_2: .asciiz " has invalid checksum"
 ####################################################################
 
 _start:
-
-	##################
-	# replace1st
-	##################
-	la $a0, FF
-	li $a1, 'F'
-	li $a2,	'B'
-	#jal replace1st
-
-	# print return value
-	move $a0, $v0
-	li $v0, 1
-	#syscall
-	li $v0, 4
-	la $a0, newline
-	#syscall
-	
-	
-	
-	##################
-	# printStringArray
-	##################
-	la $a0, sarray_ex1
-	li $a1, 3
-	li $a2, 4
-	li $a3, 5
-	jal printStringArray
-
-	# print return value
-	move $a0, $v0
-	li $v0, 1
-	syscall
-	li $v0, 4
-	la $a0, newline
-	syscall
-	
-	
-
-	##################
-	# verifyIPv4Checksum
-	##################
-	la $a0, valid_header_ex1
-	jal verifyIPv4Checksum
-
-	# print return value
-	move $a0, $v0
-	li $v0, 34
-	syscall
-	li $v0, 4
-	la $a0, newline
-	syscall
-	
-	# Terminate after checking 3rd function
-	li $v0, 10
-	syscall
-
 	##################
 	# extractData
 	##################
@@ -94,16 +38,19 @@ _start:
 	li $v0, 4
 	la $a0, success
 	syscall
+	
 	move $a0, $t0
 	li $v0, 1
 	syscall
 	li $v0, 4
 	la $a0, newline
 	syscall
+	
 	beqz $t0, Print_Bytes
 	li $v0, 4
 	la $a0, packetNumber_1
 	syscall
+	
 	li $v0, 1
 	move $a0, $v1
 	syscall
@@ -125,7 +72,9 @@ _start:
 		li $v0, 4
 		la $a0, newline
 		syscall
-
+# Terminate after checking 3rd function
+	li $v0, 10
+	syscall
 toProcessDatagram:
 	##################
 	# processDatagram

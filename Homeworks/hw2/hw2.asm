@@ -207,13 +207,74 @@ verifyIPv4Checksum:
 # PART 2 FUNCTIONS
 ##############################
 
+# $a0 =  starting address of the 1D array of ordered IPv4 Packet(s).
+# $a1 = number of packets in parray.
+# $a2 = starting address of the 1D array of byte for the msg.
+# THIS FUNCTION MUST CALL verifyIPv4Checksum
+# because we are calling another function, we might need to use $s registers to hold some values
 extractData:
-    #Define your code here
-	############################################
-	# DELETE THIS CODE. Only here to allow main program to run without fully implementing the function
-	li $v0, -555
-	li $v1, -555
-	############################################
+    # save some registers so we can use them
+    addi $sp, $sp, -24
+    sw $s4, 20($sp)
+    sw $s3, 16($sp)
+    sw $s2, 12($sp)
+    sw $s1, 8($sp)
+    sw $s0, 4($sp)
+    sw $ra, 0($sp)
+    
+    # $s0 = packet array
+    # $s1 = num of packets
+    # $s2 = starting address of where we store our payload
+    # $s3 = array index
+    move $s0, $a0
+    move $s1, $a1
+    move $s2, $a2
+    li $s3, 0
+    li $s4, 0	
+    extractDataLoop:
+    	# for every packet...
+    	beq $s3, $s1, doneSavingPackets		# done if the current index is = to the number of packets we have
+    	move $a0, $s0				# move the packet into $a0
+    	jal verifyIPv4Checksum			# call to verifyIPv4Checksum
+    	bnez $v0, extractDataReturnBadPacket	# if its a bad packet....
+    	move $t0, $s0				# $t0 = starting address of the packet
+    	lhu $t1, 0($t0)				# total length of the packet
+
+    	add $t2, $t1, $t0			# packet address + packet length = where we stop our loop when storing bytes
+    	addi $t3, $t1, -20			# subtract 20 from the total length to get payload size
+    	add $s4, $s4, $t3			# keep track of the number of bytes we save
+    	addi $t0, $t0, 20			# move to the starting address of the payload
+    	extractDataSavePacketBytesLoop:
+    		bgt $t0, $t2, nextPacketIter	# if the address we are on exceeds the ending address of the payload...
+    		lbu $t4, 0($t0)			# load the next byte
+    		sb $t4, 0($s2)			# store the byte at the current target byte location
+    		addi $t0, $t0, 1		# move to the next byte to save
+    		j extractDataSavePacketBytesLoop
+    	nextPacketIter:
+    	addi $s3, $s3, 1	# we move to the next index
+    	addi $s0, $s0, 60	# move to the next packet
+    	j extractDataLoop
+    
+    doneSavingPackets:
+    move $v0, $s4		# Return the number of bytes we saved
+    j extractDataRestoreAndReturn
+    
+    extractDataReturnBadPacket:
+    li $v0, -1					# first return, -1
+    move $v1, $s3				# second return, index of the packet that failed
+    j extractDataRestoreAndReturn
+    
+    extractDataRestoreAndReturn:
+    # Restoring stuff on stack
+    lw $ra, 0($sp)
+    lw $s0, 4($sp)
+    lw $s1, 8($sp)
+    lw $s2, 12($sp)
+    lw $s3, 16($sp)
+    lw $s4, 20($sp)
+    addi $sp, $sp, 24
+    
+    # Return
     jr $ra
 
 processDatagram:
@@ -239,6 +300,8 @@ printDatagram:
 .data
 .align 2  # Align next items to word boundary
 
-#place all data declarations here
+
+
+
 
 
