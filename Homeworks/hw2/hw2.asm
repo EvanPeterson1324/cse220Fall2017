@@ -27,13 +27,13 @@ replace1st:
 	lb $t1, 0($t0)					# load the next character into $t1
 	beqz $t1, replace1stReturnZero			# if we reached the end of the char[], return 0, char not found
 	beq $a1, $t1, replace1stReplaceAndReturn	# if the character matches the one we are looking for
-	addi $t0, $t0, 4				# go to the next character
+	addi $t0, $t0, 1				# go to the next character
 	j replace1stLoopCharArr				# loop again
 
 	# here we found the character so we will replace it with $a2 and return the address of the NEXT character
 	replace1stReplaceAndReturn:
 	sb $a2, 0($t0)			# replace the character we found
-	addi $t0, $t0, 4		# add 4 b/c we will return the next character
+	addi $t0, $t0, 1		# add 1 b/c we will return the next character
 	move $v0, $t0			# move address of next character so we can return
 	j replace1stJr
 	
@@ -50,12 +50,12 @@ replace1st:
 	replace1stJr:
 	jr $ra
 # PRINT STRING ARRAY FUNCTION
-# $a0 = atarting address of the string array
-# $a1 = starting index to print from (inclusive)
-# $a2 = ending index to print from (inclusive)
-# $a3 = number of elements in the array
 printStringArray:
-    	
+    	# $a0 = starting address of the string array
+	# $a1 = starting index to print from (inclusive)
+	# $a2 = ending index to print from (inclusive)
+	# $a3 = number of elements in the array
+	
     	# ERROR CHECKING
     	bltz $a1, printStringArrayReturnNeg1		# if starting index < 0, return -1
     	bge  $a1, $a3 printStringArrayReturnNeg1	# if the starting index is greater than or equal to the length, return -1
@@ -65,83 +65,69 @@ printStringArray:
 	blt $a2, $a1, printStringArrayReturnNeg1	# if the ending index is < the starting index, return -1
 	
 	
+	# $t0 = starting address of the string array
+	# $t1 = starting index to print from (inclusive)
+	# $t2 = ending index to print from (inclusive)
+
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
+
+	
 	# init counters
-	# $t1 = starting address of our loop
-	# $t2 = ending address of our loop
-	# $t3 = the number of strings we printed
+	move $t4, $t1		# $t4 = curr index
+	li $t5, 0		# $t5 = num strings printed
+	li $t6, 0		# $t6 = offset to get the first index
+	li $t8, 4		# $t7 = 4
 	
-	li $t0, 4
-	mul $t1, $a1, $t0	# multiply the starting index by 4 (this will be our offset to start our loop)
-	add $t1, $a0, $t1	# now we have the starting address of the first character to print
+	add $t6, $t6, $t4	# add the starting index
+	mul $t6, $t6, $t8	# get the offset to add to the starting address
+	add $t0, $t0, $t6	# get the address of the starting index string
+	lw $t7, 0($t0)		# load the starting address of the first string
 	
-	mul $t2, $a2, $t0	# multiply the starting index by 4 (this will be our offset to start our loop)
-	add $t2, $a0, $t2	# this gets us the ending address of the string array.  Return AFTER printing this
-	
-	li $t3, 0		# printed strings = 0
-	# first lets just print out the entire string array
+	# Print String Loop
+	# WHY IS IT PRINTING OUT THE WRONG STRING?????????????
 	printStringArrayLoop1:
-	lb $t0, 0($t1)					 # load the next character
-	beq $t1, $t2, printStringArrayEndIndex		 # we reached the ending index
-	bnez $t0, printStringArrayDontIncrementCount	 # if not the null terminator, just print the character and dont incremement count
-	beq $t0, $t1, printStringArrayDontIncrementCount # if the starting index is the null terminator, we didnt print anything so dont increment
-	addi $t3, $t3, 1				 # add 1 to the number of strings printed
-	
-	li $v0, 11	# tell system we will print a character
-	move $a0, $t0	# the character we want to print
-	syscall
-	
-	# double newline after each string
-	li $v0, 11		# tell system we will print a character
-	li $a0, '\n'		# newline
-	syscall
-	li $v0, 11		# tell system we will print a character
-	li $a0, '\n'		# newline
-	syscall
-	addi $t1, $t1, 4	# address of next character
-	j printStringArrayLoop1
-	
-	printStringArrayDontIncrementCount:
-	li $v0, 11		# tell system we will print a character
-	move $a0, $t0		# the character we want to print
-	syscall
-	addi $t1, $t1, 4	# address of next character
-	j printStringArrayLoop1
-	
-	printStringArrayEndIndex:
-	beqz $t1, printStringArrayLastIndexWithNullTerm
-	addi $t3, $t3, 1	# add 1 to the number of strings printed
-	li $v0, 11	# tell system we will print a character
-	move $a0, $t0	# the character we want to print
-	syscall
-	
-	li $v0, 11		# tell system we will print a character
-	li $a0, '\n'		# newline
-	syscall
-	li $v0, 11		# tell system we will print a character
-	li $a0, '\n'		# newline
-	syscall
-	move $v0, $t3		# load the number of strings we printed into the return address
-	j printStringArrayJr
-	
+		
+		
+		bgt $t4, $t2, printStringArrayReturnNumPrinted		 # if curr index is greater than ending index...
+		lb $t3, 0($t7)					 	 # $t3 = load the next character
+		beqz $t3, printStringArrayLoop1NullTerm		 	 # if char is null terminator....
+		addi $t7, $t7, 1					 # next character
+		
+		li $v0, 11						 # print character
+		move $a0, $t3						 # move the character i want to print into $a0
+		syscall
+		j printStringArrayLoop1			# loop-DEE-LOOP
+		
+		printStringArrayLoop1NullTerm:
+		addi $t4, $t4, 1			# increment current index
+		addi $t5, $t5, 1			# add 1 to the number of strings we printed
+		
+		li $t6, 0		# re init $t6 = 0
+		add $t6, $t6, $t4	# add the starting index
+		mul $t6, $t6, $t8	# get the offset to add to the starting address
+		add $t0, $t0, $t6	# get the address of the starting index string
+		lw $t7, 0($t0)		# load the starting address of the first string
+		# double newline after each string
+		li $v0, 11		# tell system we will print a character
+		li $a0, '\n'		# newline
+		syscall
+		li $v0, 11		# tell system we will print a character
+		li $a0, '\n'		# newline
+		syscall	 
+		j printStringArrayLoop1			# loop-DEE-LOOP
+		
 	printStringArrayReturnNeg1:
-	li $v0, -1	# return neg 1
-	j printStringArrayJr
+		li $v0, -1	# return neg 1
+		j printStringArrayJr
 	
-	printStringArrayLastIndexWithNullTerm:
-	addi $t3, $t3, 1	# add 1 to the number of strings printed
-	move $v0, $t3		# move the number of strings printed into the return register
-	li $v0, 11		# tell system we will print a character
-	li $a0, '\n'		# newline
-	syscall
-	li $v0, 11		# tell system we will print a character
-	li $a0, '\n'		# newline
-	syscall
-	
-	move $v0, $t3		# load the number of strings we printed into the return address
-	j printStringArrayJr	
+	printStringArrayReturnNumPrinted:
+		move $v0, $t5		# load the number of strings we printed into the return address
+		j printStringArrayJr	
 	
 	printStringArrayJr:
-	jr $ra
+		jr $ra
 
 verifyIPv4Checksum:
 	# $t0 = starting address of header
@@ -192,7 +178,7 @@ verifyIPv4Checksum:
 	beqz $t4, verifyIPv4ChecksumReturnZero	# if the result is zero then we are good
 	
 	# if its not zero, return the checksum value we got
-	move $v0, $t3
+	move $v0, $t4
 	j verifyIPv4ChecksumReturnJr	# return
 	
 	verifyIPv4ChecksumReturnZero:
@@ -248,7 +234,8 @@ extractData:
     		bgt $t0, $t2, nextPacketIter	# if the address we are on exceeds the ending address of the payload...
     		lbu $t4, 0($t0)			# load the next byte
     		sb $t4, 0($s2)			# store the byte at the current target byte location
-    		addi $t0, $t0, 1		# move to the next byte to save
+    		addi $t0, $t0, 1		# move to the next address to save
+    		addi $s2, $s2, 1		# next byte location to save at
     		j extractDataSavePacketBytesLoop
     	nextPacketIter:
     	addi $s3, $s3, 1	# we move to the next index
@@ -256,7 +243,8 @@ extractData:
     	j extractDataLoop
     
     doneSavingPackets:
-    move $v0, $s4		# Return the number of bytes we saved
+    li $v0, 0			# return 0 to say we all good
+    move $v1, $s4		# Return the number of bytes we saved
     j extractDataRestoreAndReturn
     
     extractDataReturnBadPacket:
@@ -278,9 +266,59 @@ extractData:
     jr $ra
 
 processDatagram:
-    #Define your code here
-
-    jr $ra
+	# Save $s0-$s4 and $ra since we call replace1st
+    	addi $sp, $sp, -24
+    	sw $s4, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s2, 12($sp)
+    	sw $s1, 8($sp)
+    	sw $s0, 4($sp)
+    	sw $ra, 0($sp)
+    	
+    	# if M < 0, return -1
+    	bltz $a1, processDatagramReturnNegOne
+    	# Save our args
+    	move $s0, $a0		# $s0 = starting byte address of the message in memory.
+    	move $s1, $a1		# $s1 = total number of bytes stored in msg .
+    	move $s2, $a2		# $s2 = starting address of array to hold the addresses of ASCII character strings in memory
+	li $s3, 0		# init $s3 = 0
+	
+	# store a null term at the end of the array
+	add $t0, $s0, $s1	# the location to store the null term
+	sb $0, 0($t0)		# store null term
+	
+	processDatagramReplaceLoop:
+		move $a0, $s0		# starting byte address of the msg in memory
+    		li $a1, '\n'		# character to replace
+    		li $a2, '\0'		# character to replace WITH
+    		jal replace1st
+    		beqz $v0, endProcessDatagramReplaceLoop
+    		beq $v0, -1, processDatagramReturnNegOne
+    		move $t0 , $v0		# move the return value from replace1st into $t0
+    		sub $t1, $t0, $s0	# get the number of bytes we need to move over for the next iter
+    		sb $s0, 0($s2)		# store the starting address of the string we found
+    		addi $s2, $s2, 1	# move the pointer the Str Array
+    		add $s0, $s0, $t1	# add the amount of bytes we traversed to $s0 for the next iteration
+    		addi $s3, $s3, 1	# keep track of how many strings we saved
+    		j processDatagramReplaceLoop
+    		
+    	endProcessDatagramReplaceLoop:
+    	move $v0, $s3	# return the numberof strings we stored
+    	j processDatagramRestoreAndReturn
+    	
+    	processDatagramReturnNegOne:
+    	li $v0, -1
+    	j processDatagramRestoreAndReturn
+    	
+    	processDatagramRestoreAndReturn:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+   	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	addi $sp, $sp, 24
+   	jr $ra
 
 ##############################
 # PART 3 FUNCTIONS
