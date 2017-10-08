@@ -25,7 +25,8 @@ packetNumber_2: .asciiz " has invalid checksum"
 ####################################################################
 
 _start:
-
+		j toPrintDatagram
+		#j toProcessDatagram
 	##################
 	# replace1st
 	##################
@@ -49,23 +50,23 @@ _start:
 	##################
 	# printStringArray
 	##################
-	#la $a0, sarray_ex1
-	#li $a1, 0
-	#li $a2, 2
-	#li $a3, 4
-	#jal printStringArray
+	la $a0, sarray_ex1
+	li $a1, 0
+	li $a2, 2
+	li $a3, 4
+	jal printStringArray
 
 	# print return value
-	#move $a0, $v0
-	#li $v0, 1
-	#syscall
-	#li $v0, 4
-	#la $a0, newline
-	#syscall
+	move $a0, $v0
+	li $v0, 1
+	syscall
+	li $v0, 4
+	la $a0, newline
+	syscall
 	
 	# Testing Print string array
-	#li $v0, 10
-	#syscall
+	li $v0, 10
+	syscall
 	
 	##################
 	# verifyIPv4Checksum
@@ -83,9 +84,13 @@ _start:
 	
 	#li $v0, 10
 	#syscall
+	
+	
+	j toPrintDatagram
 	##################
 	# extractData
 	##################
+	
 	la $a0, pktArray_ex4
 	li $a1, 4
 	la $a2, msg_buffer
@@ -137,7 +142,7 @@ toProcessDatagram:
 	# processDatagram
 	##################
 	la $a0, msg
-	li $a1, 26
+	li $a1, 8
 	la $a2, abcArray
 	jal processDatagram
 
@@ -148,14 +153,17 @@ toProcessDatagram:
 	li $v0, 4
 	la $a0, newline
 	syscall
-
+	# Exit the program
+	li $v0, 10
+	syscall
 	#print abcArray addresses
 
 	##################
 	# printDatagram
 	##################
-	la $a0, pktArray_ex3
-	li $a1, 1
+	toPrintDatagram:
+	la $a0, pktArray_ex4
+	li $a1, 4
 	la $a2, msg_buffer
 	la $a3, abcArray
 	jal printDatagram

@@ -15,8 +15,8 @@
 # $a2 = ascii character to replace the one we found
 replace1st:
 	# if $a1 or $a2 are outside the range of [0x00, 0x7F]
-	blez $a1, replace1stReturnNeg1
-	blez $a2, replace1stReturnNeg1
+	bltz $a1, replace1stReturnNeg1
+	bltz $a2, replace1stReturnNeg1
 	li $t0, 0x7F				# load the upper bound into $t0
 	bgt $a1, $t0, replace1stReturnNeg1
 	bgt $a2, $t0, replace1stReturnNeg1
@@ -72,8 +72,7 @@ printStringArray:
 	move $t0, $a0
 	move $t1, $a1
 	move $t2, $a2
-
-	
+	move $t9, $a0
 	# init counters
 	move $t4, $t1		# $t4 = curr index
 	li $t5, 0		# $t5 = num strings printed
@@ -86,12 +85,9 @@ printStringArray:
 	lw $t7, 0($t0)		# load the starting address of the first string
 	
 	# Print String Loop
-	# WHY IS IT PRINTING OUT THE WRONG STRING?????????????
 	printStringArrayLoop1:
-		
-		
 		bgt $t4, $t2, printStringArrayReturnNumPrinted		 # if curr index is greater than ending index...
-		lb $t3, 0($t7)					 	 # $t3 = load the next character
+		lbu $t3, 0($t7)					 	 # $t3 = load the next character
 		beqz $t3, printStringArrayLoop1NullTerm		 	 # if char is null terminator....
 		addi $t7, $t7, 1					 # next character
 		
@@ -103,9 +99,8 @@ printStringArray:
 		printStringArrayLoop1NullTerm:
 		addi $t4, $t4, 1			# increment current index
 		addi $t5, $t5, 1			# add 1 to the number of strings we printed
-		
-		li $t6, 0		# re init $t6 = 0
-		add $t6, $t6, $t4	# add the starting index
+		move $t0, $t9
+		add $t6, $0, $t4	# add the starting index
 		mul $t6, $t6, $t8	# get the offset to add to the starting address
 		add $t0, $t0, $t6	# get the address of the starting index string
 		lw $t7, 0($t0)		# load the starting address of the first string
@@ -231,7 +226,7 @@ extractData:
     	add $s4, $s4, $t3			# keep track of the number of bytes we save
     	addi $t0, $t0, 20			# move to the starting address of the payload
     	extractDataSavePacketBytesLoop:
-    		bgt $t0, $t2, nextPacketIter	# if the address we are on exceeds the ending address of the payload...
+    		beq $t0, $t2, nextPacketIter	# if the address we are on exceeds the ending address of the payload...
     		lbu $t4, 0($t0)			# load the next byte
     		sb $t4, 0($s2)			# store the byte at the current target byte location
     		addi $t0, $t0, 1		# move to the next address to save
@@ -275,8 +270,8 @@ processDatagram:
     	sw $s0, 4($sp)
     	sw $ra, 0($sp)
     	
-    	# if M < 0, return -1
-    	bltz $a1, processDatagramReturnNegOne
+    	# if M <= 0, return -1
+    	blez $a1, processDatagramReturnNegOne
     	# Save our args
     	move $s0, $a0		# $s0 = starting byte address of the message in memory.
     	move $s1, $a1		# $s1 = total number of bytes stored in msg .
@@ -296,13 +291,15 @@ processDatagram:
     		beq $v0, -1, processDatagramReturnNegOne
     		move $t0 , $v0		# move the return value from replace1st into $t0
     		sub $t1, $t0, $s0	# get the number of bytes we need to move over for the next iter
-    		sb $s0, 0($s2)		# store the starting address of the string we found
-    		addi $s2, $s2, 1	# move the pointer the Str Array
+    		sw $s0, 0($s2)		# store the starting address of the string we found
+    		addi $s2, $s2, 4	# move the pointer the Str Array
     		add $s0, $s0, $t1	# add the amount of bytes we traversed to $s0 for the next iteration
     		addi $s3, $s3, 1	# keep track of how many strings we saved
     		j processDatagramReplaceLoop
     		
     	endProcessDatagramReplaceLoop:
+    	sw $s0, 0($s2)		# store the starting address of the string we found
+    	addi $s3, $s3, 1 #off by 1
     	move $v0, $s3	# return the numberof strings we stored
     	j processDatagramRestoreAndReturn
     	
@@ -325,12 +322,77 @@ processDatagram:
 ##############################
 
 printDatagram:
-    #Define your code here
-    ############################################
-    # DELETE THIS CODE. Only here to allow main program to run without fully implementing the function
-    li $v0, -555
-    ############################################
-    jr $ra
+	beq $a1, -1, printDatagramReturnNegOne
+    	# Save $s0-$s4 and $ra since we call replace1st
+    	addi $sp, $sp, -24
+    	sw $s4, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s2, 12($sp)
+    	sw $s1, 8($sp)
+    	sw $s0, 4($sp)
+    	sw $ra, 0($sp)
+    	
+	# Move args into $s0 - $s3 registers
+    	move $s0, $a0		# $s0 = startng address of a 1D array of ordered IPv4 packets
+    	move $s1, $a1		# $s1 = the number of packets in parray
+    	move $s2, $a2		# $s2 = starting byte address of the message in memory
+    	move $s3, $a3		# $s3 = starting address of the array to hold the addresses of ASCII character strings
+    	li $s4, 0		# $s4 = 0
+    	
+    		
+    	# Begins by calling extractData
+    	# $a0 = parray
+    	# $a1 = n
+    	# $a2 = msg
+    	move $a0, $s0		# $a0 = startng address of a 1D array of ordered IPv4 packets
+    	move $a1, $s1		# $a1 = the number of packets in parray
+    	move $a2, $s2		# $a2 = starting byte address of the message in memory
+    	jal extractData		# call to extractData
+
+    	bnez $v0, printDatagramReturnNegOne	# if extractData returns something OTHER than zero, return -1
+    	
+    	# call processDatagram
+    	# $a0 = msg
+    	# $a1 = M
+    	# $a2 = sarray
+    	move $a0, $s2		# $a0 = starting byte address of the message in memory.
+    	move $a1, $v1		# $a1 = number of bytes stored in the msg
+    	move $a2, $s3		# $a2 = starting address of the array to hold the addresses of ASCII character strings in memory.
+    	jal processDatagram
+    	beq $v0, -1, printDatagramReturnNegOne    # if extractData returns something OTHER than zero, return -1
+    	
+    	
+    	# call printStringArray
+    	# $a0 = sarray
+    	# $a1 = start index
+    	# $a2 = end index
+    	# $a3 = length
+    	move $a0, $s3
+    	li $a1, 0
+    	move $a3, $v0
+    	addi $v0, $v0, -1
+    	move $a2, $v0
+    	jal printStringArray
+    	beq $v0, -1, printDatagramReturnNegOne
+    	j printDatagramReturnZero
+   
+    	printDatagramReturnNegOne:
+    	li $v0, -1	# return -1 bc something failed
+    	j printDatagramRestoreAndReturn
+    	
+    	printDatagramReturnZero:
+    	li $v0, 0	# return 0 bc we good
+    	j printDatagramRestoreAndReturn
+    	
+    	printDatagramRestoreAndReturn:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+   	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	addi $sp, $sp, 24
+    	jr $ra
 
 #################################################################
 # Student defined data section
