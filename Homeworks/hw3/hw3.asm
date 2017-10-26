@@ -136,25 +136,23 @@ verifyIPv4Checksum:
 	lb $t1, 3($t0)		# load the byte containing the header length
 	andi $t1, $t1, 0xF	# get only the header length
 	
-	# lets get the ending address of the header
-	# $t2 = ending address of header
-	li $t2, 4
+	# Get the ending address of the header
+	li $t2, 4		# $t2 will = ending address of header
 	mul $t2, $t1, $t2 	# result of the header length * 4
-	add $t2, $t2, $t0	# get the endding address of the header
-	
+	add $t2, $t2, $t0	# $t2 NOW = ending address of header
 	li $t3, 0		# checksum
 	li $t4, 0		# current word
 	
 	verifyIPv4ChecksumLoop:
-	beq $t0, $t2, verifyIPv4ChecksumLoopEnd
-	lw $t4, 0($t0)			# load the current word
-	andi $t5, $t4, 0xFFFF		# lower half
-	andi $t6, $t4, 0xFFFF0000	# upper half
-	srl $t6, $t6, 16		# shift them over 16 bits
-	add $t7, $t5, $t6		# add them together
-	add $t3, $t3, $t7		# add to the checksum total	
-	addi $t0, $t0, 4		# go to the next word
-	j verifyIPv4ChecksumLoop
+		beq $t0, $t2, verifyIPv4ChecksumLoopEnd
+		lw $t4, 0($t0)			# load the current word
+		andi $t5, $t4, 0xFFFF		# lower half
+		andi $t6, $t4, 0xFFFF0000	# upper half
+		srl $t6, $t6, 16		# shift them over 16 bits
+		add $t7, $t5, $t6		# add them together
+		add $t3, $t3, $t7		# add to the checksum total	
+		addi $t0, $t0, 4		# go to the next word
+		j verifyIPv4ChecksumLoop
 	
 	verifyIPv4ChecksumLoopEnd:
 	# see if the checksum is >= 65536
@@ -163,14 +161,14 @@ verifyIPv4Checksum:
 	blt  $t0, $t9, verifyIPv4ChecksumReturnZero	
 	# if we get here then we do an end around carry
 	verifyIPv4ChecksumEndAroundCarryLoop:
-	andi $t1, $t0, 0xFFFF		# lower 16 bits
-	andi $t2, $t0, 0xFFFF0000	# upper 16 bits
-	srl $t2, $t2, 16		# shift them over 16 bits
-	add $t3, $t1, $t2		# add them together
-	andi $t4, $t3, 0xFFFF0000
-	beqz $t4, verifyIPv4ChecksumEndAroundCarryLoopEnd
-	move $t0, $t3		# move the checksum into $t0 for the next iteration
-	j verifyIPv4ChecksumEndAroundCarryLoop
+		andi $t1, $t0, 0xFFFF		# lower 16 bits
+		andi $t2, $t0, 0xFFFF0000	# upper 16 bits
+		srl $t2, $t2, 16		# shift them over 16 bits
+		add $t3, $t1, $t2		# add them together
+		andi $t4, $t3, 0xFFFF0000
+		beqz $t4, verifyIPv4ChecksumEndAroundCarryLoopEnd
+		move $t0, $t3		# move the checksum into $t0 for the next iteration
+		j verifyIPv4ChecksumEndAroundCarryLoop
 	
 	verifyIPv4ChecksumEndAroundCarryLoopEnd:
 	not $t4, $t3				# flip the bits
@@ -260,7 +258,41 @@ extractData:
     
     # Return
     jr $ra
-
+    
+##############################
+# extractUnorderedData
+# $a0 = parray: starting address of the 1D array of UNORDERED IPv4 packets.
+# $a1 = n: number of packets in parray.
+# $a2 = msg: starting address of the 1D array of bytes for the msg.
+# $a3 = packetentrysize: the number of bytes for each packet array.
+# return (0, M+1) if success, (-1, k) on failure where k is the array index of the first error.
+##############################
+extractUnorderedData:
+	# make space on the stack and save some registers
+    	addi $sp, $sp, -24
+   	sw $s4, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s2, 12($sp)
+    	sw $s1, 8($sp)
+   	sw $s0, 4($sp)
+   	sw $ra, 0($sp)
+   	
+   	
+   	
+   	
+   	
+   	
+   	
+   	extractUnorderedDataRestoreAndReturn:
+   		# Restoring stack stuff
+    		lw $ra, 0($sp)
+    		lw $s0, 4($sp)
+    		lw $s1, 8($sp)
+    		lw $s2, 12($sp)
+    		lw $s3, 16($sp)
+    		lw $s4, 20($sp)
+    		addi $sp, $sp, 24
+		jr $ra
 ##############################
 # processDatagram
 ##############################
