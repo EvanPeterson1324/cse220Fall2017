@@ -210,7 +210,8 @@ extractData:
     move $s1, $a1
     move $s2, $a2
     li $s3, 0
-    li $s4, 0	
+    li $s4, 0
+    	
     extractDataLoop:
     	# for every packet...
     	beq $s3, $s1, doneSavingPackets		# done if the current index is = to the number of packets we have
@@ -267,19 +268,27 @@ extractData:
 # $a3 = packetentrysize: the number of bytes for each packet array.
 # return (0, M+1) if success, (-1, k) on failure where k is the array index of the first error.
 ##############################
+
 extractUnorderedData:
 	# make space on the stack and save some registers
     	addi $sp, $sp, -24
-   	sw $s4, 20($sp)
+   	sw $s4, 20($sp)			# unused right now
     	sw $s3, 16($sp)
     	sw $s2, 12($sp)
     	sw $s1, 8($sp)
-   	sw $s0, 4($sp)
+   	sw $s0, 4($sp)	
    	sw $ra, 0($sp)
    	
-   	
-   	
-   	
+   	# Init $s0 - $s3 with arguments
+    	move $s0, $a0		# $s0 = $a0
+    	move $s1, $a1		# $s1 = $a1
+    	move $s2, $a2		# $s2 = $a2
+    	move $s3, $a3		# $s3 = $a3
+    	
+   	extractUnorderedDataLoop:
+   		
+   		
+   		j extractUnorderedDataLoop	# LOOP-DEE-LOOP
    	
    	
    	
