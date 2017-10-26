@@ -1,15 +1,14 @@
 
 ##############################################################
-# Homework #2
+# Homework #3
 # name: Evan Peterson
 # sbuid: 108509452
 ##############################################################
 .text
 
 ##############################
-# PART 1 FUNCTIONS
+# Replace1st
 ##############################
-
 # $a0 = starting address of the character array
 # $a1 = ascii character to find in the string
 # $a2 = ascii character to replace the one we found
@@ -49,13 +48,16 @@ replace1st:
 	
 	replace1stJr:
 	jr $ra
-# PRINT STRING ARRAY FUNCTION
-printStringArray:
-    	# $a0 = starting address of the string array
-	# $a1 = starting index to print from (inclusive)
-	# $a2 = ending index to print from (inclusive)
-	# $a3 = number of elements in the array
 	
+	
+##############################
+# PrintStringArray
+# $a0 = starting address of the string array
+# $a1 = starting index to print from (inclusive)
+# $a2 = ending index to print from (inclusive)
+# $a3 = number of elements in the array
+##############################
+printStringArray:
     	# ERROR CHECKING
     	bltz $a1, printStringArrayReturnNeg1		# if starting index < 0, return -1
     	bge  $a1, $a3 printStringArrayReturnNeg1	# if the starting index is greater than or equal to the length, return -1
@@ -68,11 +70,11 @@ printStringArray:
 	# $t0 = starting address of the string array
 	# $t1 = starting index to print from (inclusive)
 	# $t2 = ending index to print from (inclusive)
-
 	move $t0, $a0
 	move $t1, $a1
 	move $t2, $a2
 	move $t9, $a0
+	
 	# init counters
 	move $t4, $t1		# $t4 = curr index
 	li $t5, 0		# $t5 = num strings printed
@@ -124,6 +126,9 @@ printStringArray:
 	printStringArrayJr:
 		jr $ra
 
+##############################
+# verifyIPv4Checksum
+##############################
 verifyIPv4Checksum:
 	# $t0 = starting address of header
 	# $t1 = header length
@@ -183,16 +188,12 @@ verifyIPv4Checksum:
 	verifyIPv4ChecksumReturnJr:
 	jr $ra
 	
-	#### REMEMBER TO CHECK TO SEE IF THE LAST ADDRESS IS IN THE HEADER OR NOT! (DO WE INCLUDE IT IN THE CHECKSUM?) ########
 ##############################
-# PART 2 FUNCTIONS
-##############################
-
+# extractData
 # $a0 =  starting address of the 1D array of ordered IPv4 Packet(s).
 # $a1 = number of packets in parray.
 # $a2 = starting address of the 1D array of byte for the msg.
-# THIS FUNCTION MUST CALL verifyIPv4Checksum
-# because we are calling another function, we might need to use $s registers to hold some values
+##############################
 extractData:
     # save some registers so we can use them
     addi $sp, $sp, -24
@@ -260,6 +261,9 @@ extractData:
     # Return
     jr $ra
 
+##############################
+# processDatagram
+##############################
 processDatagram:
 	# Save $s0-$s4 and $ra since we call replace1st
     	addi $sp, $sp, -24
@@ -320,9 +324,8 @@ processDatagram:
    	jr $ra
 
 ##############################
-# PART 3 FUNCTIONS
+# printDatagram
 ##############################
-
 printDatagram:
 	beq $a1, -1, printDatagramReturnNegOne
     	# Save $s0-$s4 and $ra since we call replace1st

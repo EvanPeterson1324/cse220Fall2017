@@ -25,27 +25,29 @@ packetNumber_2: .asciiz " has invalid checksum"
 ####################################################################
 
 _start:
-		j toPrintDatagram
+		j toChecksum
+		j toExtractData
+		#j toPrintDatagram
 		#j toProcessDatagram
 	##################
 	# replace1st
 	##################
-	#la $a0, FF
-	#li $a1, 0x80
-	#li $a2,	0xFF
-	# jal replace1st
+	la $a0, FF
+	li $a1, 'F'
+	li $a2,	'B'
+	 jal replace1st
 
 	# print return value
-	#move $a0, $v0
-	#li $v0, 34
-	#syscall
-	#li $v0, 4
-	#la $a0, newline
-	#syscall
+	move $a0, $v0
+	li $v0, 34
+	syscall
+	li $v0, 4
+	la $a0, newline
+	syscall
 	
 	# TESTING 1st FUNCTION
-	#li $v0, 10
-	#syscall
+	li $v0, 10
+	syscall
 
 	##################
 	# printStringArray
@@ -71,27 +73,28 @@ _start:
 	##################
 	# verifyIPv4Checksum
 	##################
-	#la $a0, invalid_header_ex1
-	#jal verifyIPv4Checksum
+	toChecksum:
+	la $a0, invalid_header_ex2
+	jal verifyIPv4Checksum
 
 	# print return value
-	#move $a0, $v0
-	#li $v0, 34
-	#syscall
-	#li $v0, 4
-	#la $a0, newline
-	#syscall
+	move $a0, $v0
+	li $v0, 34
+	syscall
+	li $v0, 4
+	la $a0, newline
+	syscall
 	
-	#li $v0, 10
-	#syscall
+	li $v0, 10
+	syscall
 	
 	
 	j toPrintDatagram
 	##################
 	# extractData
 	##################
-	
-	la $a0, pktArray_ex4
+	toExtractData:
+	la $a0, pktArray_ex3
 	li $a1, 4
 	la $a2, msg_buffer
 	jal extractData
@@ -142,7 +145,7 @@ toProcessDatagram:
 	# processDatagram
 	##################
 	la $a0, msg
-	li $a1, 8
+	li $a1, 0
 	la $a2, abcArray
 	jal processDatagram
 
@@ -162,7 +165,7 @@ toProcessDatagram:
 	# printDatagram
 	##################
 	toPrintDatagram:
-	la $a0, pktArray_ex4
+	la $a0, pktArray_ex3
 	li $a1, 4
 	la $a2, msg_buffer
 	la $a3, abcArray
