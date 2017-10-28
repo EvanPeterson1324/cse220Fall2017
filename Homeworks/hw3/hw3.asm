@@ -271,8 +271,11 @@ extractData:
 
 extractUnorderedData:
 	# make space on the stack and save some registers
-    	addi $sp, $sp, -24
-   	sw $s4, 20($sp)			# unused right now
+    	addi $sp, $sp, -36
+    	sw $s7, 32($sp)
+    	sw $s6, 28($sp)
+    	sw $s5, 24($sp)
+   	sw $s4, 20($sp)			
     	sw $s3, 16($sp)
     	sw $s2, 12($sp)
     	sw $s1, 8($sp)
@@ -284,13 +287,88 @@ extractUnorderedData:
     	move $s1, $a1		# $s1 = $a1
     	move $s2, $a2		# $s2 = $a2
     	move $s3, $a3		# $s3 = $a3
+    	li $s4, 0		# current index we are at in the array (remember to increment this when looping)
+    	move $s5, $a0		# $s5 = $a0
     	
-   	extractUnorderedDataLoop:
-   		
-   		
-   		j extractUnorderedDataLoop	# LOOP-DEE-LOOP
+   	extractUnorderedDataVerifyChecksumLoop:
+   		beq $s1, $s4, exitExtractUnorderedDataVerifyChecksumLoop		# done if the current index is = to the number of packets we have
+    		mul $t2, $s3, $s4							# index * num bytes of each packet
+   		add $s5, $s0, $t2							# add packetEntrySize to the address to get the next address
+    		move $a0, $s5								# move the packet into $a0
+    		jal verifyIPv4Checksum							# call to verifyIPv4Checksum
+   		bnez $v0, extractUnorderedDataReturnBadPacket				# if its a bad packet....
+		move $t0, $s5								# move the address of the packet we are on into $t0
+   		lhu $t1, 0($t0)								# $t1 = total length of the packet
+   		bgt $t1, $s3, extractUnorderedDataReturnBadPacket			# check if total length > packetentrysize						
+   		addi $s4, $s4, 1							# index++
+   		j extractUnorderedDataVerifyChecksumLoop				# LOOP-DEE-LOOP
    	
+   	# CHECKING CONDITIONS FOR THE FLAG AND FLAG OFFSET OF EACH PACKET!!!!!!!!!!!!!!
+   	extractUnorderedDataVerifyN:
+   		li $s4, 0								# index of the packet we are on
+   		li $s6, 0								# this will be the counter for checking only 1 start packet
+		li $s7, 0								# this will be the counter for checking only 1 ending packet
+   		blez $s1, extractUnorderedDataReturnBadN				# if n < 1...
+   		bne $s1, 1, caseNNotEqualOne
+   		bgt $s1, 1, caseNGreaterThan1
+   		caseNEqualOne:
+   			move $a0, $s0
+   			jal getFlagAndFlagOffset
+   			beq $v0, 4, extractUnorderedDataReturnBadN
+   			#  If flags == 000 and frag offset != 1... 
+   			bnez $v0, extractUnorderedDataGetData		# if the flag isnt zero, then we are fine
+   			bnez $v1, extractUnorderedDataReturnBadN	# in this case, flag = 0 && offset != 0
+   			j extractUnorderedDataGetData
+   			
+   		# Return (-1, -1) if any flag has packet has flags == 010
+   		caseNNotEqualOne:
+   			beq $s1, $s4, extractUnorderedDataGetData				# done if the current index is = to the number of packets we have
+    			mul $t0, $s3, $s4							# index * num bytes of each packet
+   			add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
+   			jal getFlagAndFlagOffset
+   			beq $v0, 2, extractUnorderedDataReturnBadN				# return (-1, -1) if one packet is bad
+   			addi $s4, $s4, 1
+   			j caseNNotEqualOne							# loop-dee-loop
+   		
+   		# Return (-1, -1) if more that one packet is a beginning packet or more than 1 is an ending packet
+   		caseNGreaterThan1:
+   			beq $s1, $s4, caseNGreaterThan1LastCheck				# done if the current index is = to the number of packets we have
+    			mul $t0, $s3, $s4							# index * num bytes of each packet
+   			add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
+   			addi $s4, $s4, 1							# index++
+   			jal getFlagAndFlagOffset
+			bnez $v1, caseNGreaterThan1
+   			beqz $v0, caseNGreaterThan1AddEnd1
+   			beq $v0, 4, caseNGreaterThan1AddStart1
+   			j caseNGreaterThan1							# loop-dee-loop	
+   			
+   			caseNGreaterThan1AddStart1:
+   				addi $s6, $s6, 1
+   				bgt $s6, 1, extractUnorderedDataReturnBadN
+   				j caseNGreaterThan1
+   				
+   			caseNGreaterThan1AddEnd1:
+   				addi $s7, $s7, 1
+   				bgt $s7, 1, extractUnorderedDataReturnBadN
+   				j caseNGreaterThan1
+   				
+   			caseNGreaterThan1LastCheck:
+   				beqz $s6, extractUnorderedDataReturnBadN
+   				beqz $s7, extractUnorderedDataReturnBadN
+   				j extractUnorderedDataGetData
+   						
+   	extractUnorderedDataGetData:
+   		
+   			
+   	extractUnorderedDataReturnBadN:
+   		li $v0, -1		# return -1
+   		li $v1, -1		# return -1
+   		j extractUnorderedDataRestoreAndReturn		
    	
+   	extractUnorderedDataReturnBadPacket:
+   		li $v0, -1			# return -1
+   		move $v1, $s4			# return the index of the array we were on
+   		j extractUnorderedDataRestoreAndReturn
    	
    	extractUnorderedDataRestoreAndReturn:
    		# Restoring stack stuff
@@ -300,8 +378,24 @@ extractUnorderedData:
     		lw $s2, 12($sp)
     		lw $s3, 16($sp)
     		lw $s4, 20($sp)
-    		addi $sp, $sp, 24
+    		lw $s5, 24($sp)
+    		lw $s6, 28($sp)
+    		lw $s7, 32($sp)
+    		addi $sp, $sp, 36
 		jr $ra
+		
+##############################
+# getFlagAndFlagOffset
+# $a0 = packet: address of the packet.
+# return (flag, flag offset) if success, return -1 if something went wrong
+##############################
+getFlagAndFlagOffset:
+	lhu $t0, 4($a0)		# get the half word with the flags and flags offset
+	srl $v0, $t0, 13	# get the flags
+	sll $v1, $t0, 3		# get rid of 3 flag bits
+	srl $v1, $v1, 3		# get the flag offset
+	jr $ra			# return		
+	
 ##############################
 # processDatagram
 ##############################
