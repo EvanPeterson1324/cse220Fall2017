@@ -291,7 +291,7 @@ extractUnorderedData:
     	move $s5, $a0		# $s5 = $a0
     	
    	extractUnorderedDataVerifyChecksumLoop:
-   		beq $s1, $s4, exitExtractUnorderedDataVerifyChecksumLoop		# done if the current index is = to the number of packets we have
+   		beq $s1, $s4, extractUnorderedDataVerifyN				# done if the current index is = to the number of packets we have
     		mul $t2, $s3, $s4							# index * num bytes of each packet
    		add $s5, $s0, $t2							# add packetEntrySize to the address to get the next address
     		move $a0, $s5								# move the packet into $a0
@@ -551,21 +551,42 @@ editDistance:
 	sw $s0, 4($sp)
     	sw $ra, 0($sp)
 	
-	# if m or n < 0, return -1
-	bltz $a2, editDistanceErrorReturn
-	bltz $a3, editDistanceErrorReturn
-	
-	# if n or n are empty strings, return zero
-	beqz $a2, editDistanceReturnZero
-	beqz $a3, editDistanceReturnZero
-	
 	move $t0, $a0		# str1
 	move $t1, $a1		# str2
 	move $t2, $a2		# m
 	move $t3, $a3		# n
-	
 	addi $t4, $t2, -1	# m - 1
 	addi $t5, $t3, -1	# n - 1
+	
+	# if m or n < 0, return -1
+	bltz $a2, editDistanceErrorReturn
+	bltz $a3, editDistanceErrorReturn
+	
+	# System.out.print("m:" + m + ",n:" + n + "\n");
+	li $v0, 4
+	la $a0, m
+	syscall
+	
+	li $v0, 1
+	move $a0, $t2
+	syscall
+	
+	li $v0, 4
+	la $a0, n
+	syscall
+	
+	li $v0, 1
+	move $a0, $t3
+	syscall
+	
+	li $v0, 4
+	la $a0, newline
+	syscall
+	
+	
+	# if n or n are empty strings, return zero
+	beqz $a2, editDistanceReturnZero
+	beqz $a3, editDistanceReturnZero
 	
 	add $t6, $t0 $t4	# get last char address of str2
 	add $t7, $t1 $t5	# get last char address of str1
@@ -664,6 +685,9 @@ minThree:
 # Student defined data section
 #################################################################
 .data
+newline:  .asciiz "\n"
+m:    .asciiz "m:"
+n:    .asciiz ",n:"
 .align 2  # Align next items to word boundary
 
 
