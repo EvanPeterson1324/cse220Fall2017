@@ -534,6 +534,132 @@ printDatagram:
     	addi $sp, $sp, 24
     	jr $ra
 
+
+##############################
+# editDistance
+# $a0 = Starting address of String #1
+# $a1 = Starting address of String #2
+# $a2 = length of string #1    (m)
+# $a3 = length of string #2    (n)
+##############################
+editDistance:
+	addi $sp, $sp, -24
+	sw $s4, 20($sp)
+	sw $s3, 16($sp)
+	sw $s2, 12($sp)
+	sw $s1, 8($sp)
+	sw $s0, 4($sp)
+    	sw $ra, 0($sp)
+	
+	# if m or n < 0, return -1
+	bltz $a2, editDistanceErrorReturn
+	bltz $a3, editDistanceErrorReturn
+	
+	# if n or n are empty strings, return zero
+	beqz $a2, editDistanceReturnZero
+	beqz $a3, editDistanceReturnZero
+	
+	move $t0, $a0		# str1
+	move $t1, $a1		# str2
+	move $t2, $a2		# m
+	move $t3, $a3		# n
+	
+	addi $t4, $t2, -1	# m - 1
+	addi $t5, $t3, -1	# n - 1
+	
+	add $t6, $t0 $t4	# get last char address of str2
+	add $t7, $t1 $t5	# get last char address of str1
+	lbu $t6, 0($t6)
+	lbu $t7, 0($t7)
+	bne $t6, $t7, editDistanceNotSameLastChar 
+	
+	move $a0, $t0	# set up recursive call
+	move $a1, $t1	# set up recursive call
+	move $a2, $t4	# set up recursive call
+	move $a3, $t5	# set up recursive call
+	jal editDistance
+	j editDistanceRestoreAndReturn
+	
+	editDistanceNotSameLastChar:
+		move $s0, $t2		# m
+		move $s1, $t3		# n
+		
+		#int insert = editDistance(str1, str2, m, n-1);
+		move $a2, $s0	# set up recursive call
+		move $a3, $s1	# set up recursive call
+		addi $a3, $a3, -1	# n - 1
+		jal editDistance
+		move $s2, $v0						# insert
+		
+		#int remove = editDistance(str1, str2, m-1, n);
+		move $a2, $s0	# set up recursive call
+		move $a3, $s1	# set up recursive call
+		addi $a2, $a2, -1	# m - 1
+		jal editDistance
+		move $s3, $v0						# remove
+		
+		#int replace = editDistance(str1, str2, m-1, n-1);
+		move $a2, $s0	# set up recursive call
+		move $a3, $s1	# set up recursive call
+		addi $a2, $a2, -1	# m - 1
+		addi $a3, $a3, -1	# n - 1
+		jal editDistance
+		move $s3, $v0						# replace
+		
+		# get the minimum of the three
+		move $a0, $s2
+		move $a1, $s3
+		move $a2, $s4
+		jal minThree
+		addi $v0, $v0, 1
+		j editDistanceRestoreAndReturn
+		
+	editDistanceErrorReturn:
+		li $v0, -1
+		jr $ra
+	
+	editDistanceReturnZero:
+		li $v0, 0
+		j editDistanceRestoreAndReturn
+		
+	editDistanceRestoreAndReturn:
+		lw $s3, 20($sp)
+		lw $s3, 16($sp)
+		lw $s2, 12($sp)
+		lw $s1, 8($sp)
+		lw $s0, 4($sp)
+    		lw $ra, 0($sp)
+		addi $sp, $sp, 24
+		jr $ra
+	
+	
+##############################
+# minThree
+# $a0 = value 1
+# $a1 = value 2
+# $a2 = value 3
+# Returns the min of the three values
+##############################
+minThree:
+	move $t0, $a0			# $a0 = $t0, $a0 = min for now
+	minThreeFirstCheck: 
+		blt $a1, $t0, minThreeSetMin1
+		
+	minThreeSecondCheck:
+		blt $a2, $t0, minThreeSetMin2
+		j minThreeReturn
+		
+	minThreeSetMin1:
+		move $a1, $t0		# $a1 is the new min
+		j minThreeSecondCheck
+	
+	minThreeSetMin2: 
+		move $a1, $t0		# $a2 is the new min
+	
+	minThreeReturn:
+		move $v0, $t0
+		jr $ra
+	
 #################################################################
 # Student defined data section
 #################################################################
