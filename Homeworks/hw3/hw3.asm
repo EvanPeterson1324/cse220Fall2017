@@ -584,9 +584,9 @@ editDistance:
 	syscall
 	
 	
-	# if n or n are empty strings, return zero
-	beqz $a2, editDistanceReturnZero
-	beqz $a3, editDistanceReturnZero
+	# if m or n are empty strings, return n or m respectively
+	beqz $a2, editDistanceReturnN
+	beqz $a3, editDistanceReturnM
 	
 	add $t6, $t0 $t4	# get last char address of str2
 	add $t7, $t1 $t5	# get last char address of str1
@@ -606,26 +606,47 @@ editDistance:
 		move $s1, $t3		# n
 		
 		#int insert = editDistance(str1, str2, m, n-1);
+		move $a0, $t0	# set up recursive call
+		move $a1, $t1	# set up recursive call
 		move $a2, $s0	# set up recursive call
 		move $a3, $s1	# set up recursive call
 		addi $a3, $a3, -1	# n - 1
+		addi $sp, $sp, -8
+		sw $t0, 0($sp)
+		sw $t1, 4($sp)
 		jal editDistance
-		move $s2, $v0						# insert
+		lw $t0, 0($sp)
+		lw $t1, 4($sp)
+		addi $sp, $sp, 8
+		
+		move $s2, $v0	# insert
+		move $a0, $t0	# set up recursive call
+		move $a1, $t1	# set up recursive call
 		
 		#int remove = editDistance(str1, str2, m-1, n);
 		move $a2, $s0	# set up recursive call
 		move $a3, $s1	# set up recursive call
 		addi $a2, $a2, -1	# m - 1
-		jal editDistance
-		move $s3, $v0						# remove
 		
+		addi $sp, $sp, -8
+		sw $t0, 0($sp)
+		sw $t1, 4($sp)
+		jal editDistance
+		lw $t0, 0($sp)
+		lw $t1, 4($sp)
+		addi $sp, $sp, 8
+		
+		move $s3, $v0						# remove
 		#int replace = editDistance(str1, str2, m-1, n-1);
+		move $a0, $t0	# set up recursive call
+		move $a1, $t1	# set up recursive call
 		move $a2, $s0	# set up recursive call
 		move $a3, $s1	# set up recursive call
 		addi $a2, $a2, -1	# m - 1
 		addi $a3, $a3, -1	# n - 1
+		
 		jal editDistance
-		move $s3, $v0						# replace
+		move $s4, $v0						# replace
 		
 		# get the minimum of the three
 		move $a0, $s2
@@ -639,8 +660,12 @@ editDistance:
 		li $v0, -1
 		jr $ra
 	
-	editDistanceReturnZero:
-		li $v0, 0
+	editDistanceReturnM:
+		move $v0, $a2
+		j editDistanceRestoreAndReturn
+	
+	editDistanceReturnN:
+		move $v0, $a3
 		j editDistanceRestoreAndReturn
 		
 	editDistanceRestoreAndReturn:
@@ -671,11 +696,11 @@ minThree:
 		j minThreeReturn
 		
 	minThreeSetMin1:
-		move $a1, $t0		# $a1 is the new min
+		move $t0, $a1		# $a1 is the new min
 		j minThreeSecondCheck
 	
 	minThreeSetMin2: 
-		move $a1, $t0		# $a2 is the new min
+		move $t0, $a2		# $a2 is the new min
 	
 	minThreeReturn:
 		move $v0, $t0
