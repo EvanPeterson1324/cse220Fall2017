@@ -268,7 +268,6 @@ extractData:
 # $a3 = packetentrysize: the number of bytes for each packet array.
 # return (0, M+1) if success, (-1, k) on failure where k is the array index of the first error.
 ##############################
-
 extractUnorderedData:
 	# make space on the stack and save some registers
     	addi $sp, $sp, -36
@@ -325,6 +324,7 @@ extractUnorderedData:
    			beq $s1, $s4, extractUnorderedDataGetData				# done if the current index is = to the number of packets we have
     			mul $t0, $s3, $s4							# index * num bytes of each packet
    			add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
+   			move $a0, $s5								# move the value of $s5 into $a0
    			jal getFlagAndFlagOffset
    			beq $v0, 2, extractUnorderedDataReturnBadN				# return (-1, -1) if one packet is bad
    			addi $s4, $s4, 1
@@ -336,6 +336,7 @@ extractUnorderedData:
     			mul $t0, $s3, $s4							# index * num bytes of each packet
    			add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
    			addi $s4, $s4, 1							# index++
+   			move $a0, $s5								# move the value of $s5 into $a0
    			jal getFlagAndFlagOffset
 			bnez $v1, caseNGreaterThan1
    			beqz $v0, caseNGreaterThan1AddEnd1
@@ -358,8 +359,39 @@ extractUnorderedData:
    				j extractUnorderedDataGetData
    						
    	extractUnorderedDataGetData:
+   	li $s4, 0	# init index to 0
+   	extractUnorderedDataGetDataLoop:
+   		beq $s1, $s4, extractUnorderedDataGetDataLoopDone			# done if the current index is = to the number of packets we have
+    		mul $t0, $s3, $s4							# index * num bytes of each packet
+   		add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
+   		move $a0, $s5								# move the value of $s5 into $a0
+   		addi $s4, $s4, 1
+   		jal getFlagAndFlagOffset						# $v0 = flag | $v1 = flag offset
+   		lhu $t1, 0($s5)								# $t1 = total length
+   		move $t2, $s5								# $t2 = starting address of packet header
+   		lbu $t3, 3($t2)								# $t3 = byte with header length in it
+   		andi $t3, $t3, 0xF							# get ONLY header length
+   		li $t4, 4								# to multiply header *4
+   		mul $t4, $t4, $t3							# $t4 = header length * 4
+   		sub $t5, $t1, $t4							# $t5 = payload length... (total length - (4 * header length)
+   		# now we need to move the starting address of the payload, and save it depending on the offset
+   		add $s5, $s5, $t4							# starting address of the payload
    		
-   			
+   			extractUnorderedDataSavePayloadLoop:
+   				# $v0 = flag | $v1 = offset
+   				# beq $v0, 4, checkOffsetZero
+   				# beq $v0, 2. saveAtFirstIndex
+   				# beqz $v1, saveAtFirstIndex
+   				# save msg at offset
+   		
+   		# now we need the payload
+   		# payload length = total length - (4 * header length)
+   		
+   		j extractUnorderedDataGetDataLoop
+   	
+   	extractUnorderedDataGetDataLoopDone:
+   	
+   	
    	extractUnorderedDataReturnBadN:
    		li $v0, -1		# return -1
    		li $v1, -1		# return -1
@@ -500,7 +532,6 @@ printDatagram:
     	move $a2, $s3		# $a2 = starting address of the array to hold the addresses of ASCII character strings in memory.
     	jal processDatagram
     	beq $v0, -1, printDatagramReturnNegOne    # if extractData returns something OTHER than zero, return -1
-    	
     	
     	# call printStringArray
     	# $a0 = sarray
