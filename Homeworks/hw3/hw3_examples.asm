@@ -64,7 +64,7 @@ pm_3pkterr: .word  0x460a0048 0x00020000 0x03049ad4 0x0a0a0a0a 0x82000001 0xcafe
 # The payload of this valid packet is "Ivysaur"
 # Array Entry Packet Size: 200
 #
-# Expected output of printUnorderedDatagram, return value is 1:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 1):
 #Ivysaur
 #
 pm_1pkt: .word  0x460a001f 0x00020000 0x03049afd 0x0a0a0a0a 0x82000001 0xcafebabe
@@ -82,7 +82,7 @@ pm_1pkt: .word  0x460a001f 0x00020000 0x03049afd 0x0a0a0a0a 0x82000001 0xcafebab
 # You can use your HW2 extractData function to see the expected result
 # Array Entry Packet Size: 80
 #
-# Expected output of printUnorderedDatagram, return value is 4:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 4):
 #I'm just a poor boy, I need no sympathy
 #
 #Because I'm easy come, easy go
@@ -122,7 +122,7 @@ queen_all: .word
 # This array is in random order
 # Array Entry Packet Size: 80
 #
-# Expected output of printUnorderedDatagram, return value is 4:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 4):
 #I'm just a poor boy, I need no sympathy
 #
 #Because I'm easy come, easy go
@@ -163,7 +163,7 @@ queen_all_unsorted: .word
 # You can use your HW2 extractData function to see the expected result
 # Array Entry Packet Size: 100
 #
-# Expected output of printUnorderedDatagram, return value is 6:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 6):
 #It's Supercalifragilisticexpialidocious!
 #
 #Even though the sound of it
@@ -205,7 +205,7 @@ marypoppins: .word  0x45050031 0x00058000 0x0505459d 0x82f5a958 0xb8cb0b08 0x732
 # This array is in random order
 # Array Entry Packet Size: 100
 #
-# Expected output of printUnorderedDatagram, return value is 6:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 6):
 #It's Supercalifragilisticexpialidocious!
 #
 #Even though the sound of it
@@ -251,7 +251,7 @@ marypoppins_unsorted: .word 0x45050030 0x0005805c 0x05054542 0x82f5a958 0xb8cb0b
 # You can use your HW2 extractData function to see the expected result
 # Array Entry Packet Size: 80
 #
-# Expected output of printUnorderedDatagram, return value is 3:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 3):
 #I'm just a poor boy, I need no sympathy
 #
 #Because I'm easy come, easy g*******************le low
@@ -286,7 +286,7 @@ queen_holes:  .word
 # This array is in random order
 # Array Entry Packet Size: 80
 #
-# Expected output of printUnorderedDatagram, return value is 3:
+# Expected output of printUnorderedDatagram, return value is 0 (intermediate call to processDatagram should return 3):
 #I'm just a poor boy, I need no sympathy
 #
 #Because I'm easy come, easy g*******************le low
