@@ -360,6 +360,7 @@ extractUnorderedData:
    						
    	extractUnorderedDataGetData:
    	li $s4, 0	# init index to 0
+   	li $s6, 0	# $s6 = largest index we saved to
    	extractUnorderedDataGetDataLoop:
    		beq $s1, $s4, extractUnorderedDataGetDataLoopDone			# done if the current index is = to the number of packets we have
     		mul $t0, $s3, $s4							# index * num bytes of each packet
@@ -376,22 +377,48 @@ extractUnorderedData:
    		sub $t5, $t1, $t4							# $t5 = payload length... (total length - (4 * header length)
    		# now we need to move the starting address of the payload, and save it depending on the offset
    		add $s5, $s5, $t4							# starting address of the payload
+   		add $t6, $s5, $t5							# ending address of the payload
+   		# $v0 = flag | $v1 = offset
+   		beq $v0, 4, checkOffsetZero
+   		beq $v0, 2, saveAtFirstIndex
+   		beqz $v1, checkOffsetZero
    		
+   		checkOffsetZero:
+   			beqz $v1, saveAtFirstIndex
+   			j saveAtOffsetIndex
+   					
+   		saveAtFirstIndex:
+   			# Save the payload at the first index of msg
+   			move $t8, $s2	# get the starting address of the msg array to save at
+   			j extractUnorderedDataSavePayloadLoop
+   					
+   		saveAtOffsetIndex:
+   			# Save the payload at msg[offset]
+   			ble $v1, $s6, unorderedOldMax
+   			move $s6, $v1			# update the new max index
+   			
+   			unorderedOldMax:
+   			add $t8, $v1, $s2	# get the starting address of the msg array to save at
+   			j extractUnorderedDataSavePayloadLoop
+   			
    			extractUnorderedDataSavePayloadLoop:
-   				# $v0 = flag | $v1 = offset
-   				# beq $v0, 4, checkOffsetZero
-   				# beq $v0, 2. saveAtFirstIndex
-   				# beqz $v1, saveAtFirstIndex
-   				# save msg at offset
+   				beq $s5, $t6, unorderedNextPacketIter
+   				lbu $t7, 0($s5)		# load the byte from the payload
+   				sb $t7, 0($t8)
+   				addi $s5, $s5, 1	# next byte of payload
+   				addi $t8, $t8, 1	# next byte location in msg to save
+   				j extractUnorderedDataSavePayloadLoop
+   						
+   				unorderedNextPacketIter:
+   					addi $s4, $s4, 1	# next packet index
+   					# do we need to give the location of the next packet or does it do that already?
+   					j extractUnorderedDataGetDataLoop
    		
-   		# now we need the payload
-   		# payload length = total length - (4 * header length)
-   		
-   		j extractUnorderedDataGetDataLoop
-   	
    	extractUnorderedDataGetDataLoopDone:
-   	
-   	
+   		li $v0, 0
+   		move $v1, $s6			# THIS NEEDS TO BE THE HIGHEST INDEX WE SAVED AT
+   		j extractUnorderedDataRestoreAndReturn
+   		
    	extractUnorderedDataReturnBadN:
    		li $v0, -1		# return -1
    		li $v1, -1		# return -1
@@ -564,8 +591,85 @@ printDatagram:
     	lw $s4, 20($sp)
     	addi $sp, $sp, 24
     	jr $ra
+    	
+##############################
+# printDatagram
+##############################
+printUnorderedDatagram:
+	beq $a1, -1, printUnorderedDatagramReturnNegOne
+	lw $t0, 0($sp) # get the firth argument off the stack
+    	# Save $s0-$s4 and $ra since we call replace1st
+    	addi $sp, $sp, -28
+    	sw $s5, 24($sp)
+    	sw $s4, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s2, 12($sp)
+    	sw $s1, 8($sp)
+    	sw $s0, 4($sp)
+    	sw $ra, 0($sp)
+    	
+	# Move args into $s0 - $s3 registers
+    	move $s0, $a0		# $s0 = startng address of a 1D array of ordered IPv4 packets
+    	move $s1, $a1		# $s1 = the number of packets in parray
+    	move $s2, $a2		# $s2 = starting byte address of the message in memory
+    	move $s3, $a3		# $s3 = starting address of the array to hold the addresses of ASCII character strings
+    	li $s4, 0		# $s4 = 0
+    	move $s5, $t0		# $s5 = packetentrysize
+    		
+    	# Begins by calling extractData
+    	# $a0 = parray
+    	# $a1 = n
+    	# $a2 = msg
+    	move $a0, $s0		# $a0 = startng address of a 1D array of ordered IPv4 packets
+    	move $a1, $s1		# $a1 = the number of packets in parray
+    	move $a2, $s2		# $a2 = starting byte address of the message in memory
+    	move $a3, $s5		# $a3 = packetentrysize
+    	jal extractUnorderedData		# call to extractUnorderedData
 
-
+    	bnez $v0, printUnorderedDatagramReturnNegOne	# if extractData returns something OTHER than zero, return -1
+    	
+    	# call processDatagram
+    	# $a0 = msg
+    	# $a1 = M
+    	# $a2 = sarray
+    	move $a0, $s2		# $a0 = starting byte address of the message in memory.
+    	move $a1, $v1		# $a1 = number of bytes stored in the msg
+    	move $a2, $s3		# $a2 = starting address of the array to hold the addresses of ASCII character strings in memory.
+    	jal processDatagram
+    	beq $v0, -1, printUnorderedDatagramReturnNegOne    # if extractData returns something OTHER than zero, return -1
+    	
+    	# call printStringArray
+    	# $a0 = sarray
+    	# $a1 = start index
+    	# $a2 = end index
+    	# $a3 = length
+    	move $a0, $s3
+    	li $a1, 0
+    	move $a3, $v0
+    	addi $v0, $v0, -1
+    	move $a2, $v0
+    	jal printStringArray
+    	beq $v0, -1, printUnorderedDatagramReturnNegOne
+    	j printUnorderedDatagramReturnZero
+   
+    	printUnorderedDatagramReturnNegOne:
+    	li $v0, -1	# return -1 bc something failed
+    	j printDatagramRestoreAndReturn
+    	
+    	printUnorderedDatagramReturnZero:
+    	li $v0, 0	# return 0 bc we good
+    	j printUnorderedDatagramRestoreAndReturn
+    	
+    	printUnorderedDatagramRestoreAndReturn:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+   	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	lw $s5, 24($sp)
+    	addi $sp, $sp, 28
+    	jr $ra
 ##############################
 # editDistance
 # $a0 = Starting address of String #1

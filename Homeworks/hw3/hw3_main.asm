@@ -22,13 +22,18 @@ emptyStr:   .asciiz ""
 ####################################################################
 
 _start:
-	la $a0, emptyStr
-	la $a1, one
-	li $a2, 0
-	li $a3, 1
-	jal editDistance
+	#la $a0, emptyStr
+	#la $a1, one
+	#li $a2, 0
+	#li $a3, 1
+	#jal editDistance
+	
 	
 	move $a0, $v0
+	li $v0, 1
+	syscall
+	
+	move $a0, $v1
 	li $v0, 1
 	syscall
 	
