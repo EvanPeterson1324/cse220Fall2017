@@ -268,6 +268,7 @@ extractData:
 # $a3 = packetentrysize: the number of bytes for each packet array.
 # return (0, M+1) if success, (-1, k) on failure where k is the array index of the first error.
 ##############################
+
 extractUnorderedData:
 	# make space on the stack and save some registers
     	addi $sp, $sp, -36
@@ -287,138 +288,131 @@ extractUnorderedData:
     	move $s2, $a2		# $s2 = $a2
     	move $s3, $a3		# $s3 = $a3
     	li $s4, 0		# current index we are at in the array (remember to increment this when looping)
-    	move $s5, $a0		# $s5 = $a0
-    	
-   	extractUnorderedDataVerifyChecksumLoop:
-   		beq $s1, $s4, extractUnorderedDataVerifyN				# done if the current index is = to the number of packets we have
-    		mul $t2, $s3, $s4							# index * num bytes of each packet
-   		add $s5, $s0, $t2							# add packetEntrySize to the address to get the next address
+    	li $s5, 0		# $s5 = $a0
+    	li $s6, 0		# $s6 = the counter for checking if there is exactly 1 start packet
+	li $s7, 0		# $s7 = the counter for checking if there is only 1 ending packet
+	
+	extractUnorderedVerifyChecksumLoop:
+		beq $s1, $s4, unorderedBeforeGetData					# done if the current index is = to the number of packets we have
+    		mul $t0, $s3, $s4							# index * num bytes of each packet
+   		add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
     		move $a0, $s5								# move the packet into $a0
     		jal verifyIPv4Checksum							# call to verifyIPv4Checksum
    		bnez $v0, extractUnorderedDataReturnBadPacket				# if its a bad packet....
-		move $t0, $s5								# move the address of the packet we are on into $t0
-   		lhu $t1, 0($t0)								# $t1 = total length of the packet
-   		bgt $t1, $s3, extractUnorderedDataReturnBadPacket			# check if total length > packetentrysize						
-   		addi $s4, $s4, 1							# index++
-   		j extractUnorderedDataVerifyChecksumLoop				# LOOP-DEE-LOOP
-   	
-   	# CHECKING CONDITIONS FOR THE FLAG AND FLAG OFFSET OF EACH PACKET!!!!!!!!!!!!!!
-   	extractUnorderedDataVerifyN:
-   		li $s4, 0								# index of the packet we are on
-   		li $s6, 0								# this will be the counter for checking only 1 start packet
-		li $s7, 0								# this will be the counter for checking only 1 ending packet
-   		blez $s1, extractUnorderedDataReturnBadN				# if n < 1...
-   		bne $s1, 1, caseNNotEqualOne
-   		bgt $s1, 1, caseNGreaterThan1
-   		caseNEqualOne:
-   			move $a0, $s0
-   			jal getFlagAndFlagOffset
-   			beq $v0, 4, extractUnorderedDataReturnBadN
-   			#  If flags == 000 and frag offset != 1... 
-   			bnez $v0, extractUnorderedDataGetData		# if the flag isnt zero, then we are fine
-   			bnez $v1, extractUnorderedDataReturnBadN	# in this case, flag = 0 && offset != 0
-   			j extractUnorderedDataGetData
-   			
-   		# Return (-1, -1) if any flag has packet has flags == 010
-   		caseNNotEqualOne:
-   			beq $s1, $s4, extractUnorderedDataGetData				# done if the current index is = to the number of packets we have
-    			mul $t0, $s3, $s4							# index * num bytes of each packet
-   			add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
-   			move $a0, $s5								# move the value of $s5 into $a0
-   			jal getFlagAndFlagOffset
-   			beq $v0, 2, extractUnorderedDataReturnBadN				# return (-1, -1) if one packet is bad
-   			addi $s4, $s4, 1
-   			j caseNNotEqualOne							# loop-dee-loop
-   		
-   		# Return (-1, -1) if more that one packet is a beginning packet or more than 1 is an ending packet
-   		caseNGreaterThan1:
-   			beq $s1, $s4, caseNGreaterThan1LastCheck				# done if the current index is = to the number of packets we have
-    			mul $t0, $s3, $s4							# index * num bytes of each packet
-   			add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
-   			addi $s4, $s4, 1							# index++
-   			move $a0, $s5								# move the value of $s5 into $a0
-   			jal getFlagAndFlagOffset
-			bnez $v1, caseNGreaterThan1
-   			beqz $v0, caseNGreaterThan1AddEnd1
-   			beq $v0, 4, caseNGreaterThan1AddStart1
-   			j caseNGreaterThan1							# loop-dee-loop	
-   			
-   			caseNGreaterThan1AddStart1:
-   				addi $s6, $s6, 1
-   				bgt $s6, 1, extractUnorderedDataReturnBadN
-   				j caseNGreaterThan1
-   				
-   			caseNGreaterThan1AddEnd1:
-   				addi $s7, $s7, 1
-   				bgt $s7, 1, extractUnorderedDataReturnBadN
-   				j caseNGreaterThan1
-   				
-   			caseNGreaterThan1LastCheck:
-   				beqz $s6, extractUnorderedDataReturnBadN
-   				beqz $s7, extractUnorderedDataReturnBadN
-   				j extractUnorderedDataGetData
-   						
-   	extractUnorderedDataGetData:
-   	li $s4, 0	# init index to 0
-   	li $s6, 0	# $s6 = largest index we saved to
+		lhu $t0, 0($s5)								# $t0 = total length of the packet
+		bgt $t0, $s3, extractUnorderedDataReturnBadPacket			# return bad packet if the length is greater than the packet entry size
+		addi $s4, $s4, 1							# next index for later
+		j extractUnorderedVerifyChecksumLoop
+	
+	unorderedBeforeGetData:
+		li $s4, 0								# init $s4 = 0 for the index of the packet array
    	extractUnorderedDataGetDataLoop:
-   		beq $s1, $s4, extractUnorderedDataGetDataLoopDone			# done if the current index is = to the number of packets we have
+   		beq $s1, $s4, unorderedLastChecks					# done if the current index is = to the number of packets we have
     		mul $t0, $s3, $s4							# index * num bytes of each packet
    		add $s5, $s0, $t0							# add packetEntrySize to the address to get the next address
-   		move $a0, $s5								# move the value of $s5 into $a0
-   		addi $s4, $s4, 1
-   		jal getFlagAndFlagOffset						# $v0 = flag | $v1 = flag offset
-   		lhu $t1, 0($s5)								# $t1 = total length
-   		move $t2, $s5								# $t2 = starting address of packet header
-   		lbu $t3, 3($t2)								# $t3 = byte with header length in it
-   		andi $t3, $t3, 0xF							# get ONLY header length
-   		li $t4, 4								# to multiply header *4
-   		mul $t4, $t4, $t3							# $t4 = header length * 4
-   		sub $t5, $t1, $t4							# $t5 = payload length... (total length - (4 * header length)
-   		# now we need to move the starting address of the payload, and save it depending on the offset
-   		add $s5, $s5, $t4							# starting address of the payload
-   		add $t6, $s5, $t5							# ending address of the payload
-   		# $v0 = flag | $v1 = offset
-   		beq $v0, 4, checkOffsetZero
-   		beq $v0, 2, saveAtFirstIndex
-   		beqz $v1, checkOffsetZero
+   		lhu $t0, 0($s5)								# $t0 = total length of the packet
+   		lbu $t1, 3($s5)								# $t1 = header length
+   		andi $t1, $t1, 0xF							# get ONLY header length
+   		li $t2, 4								# to multiply header *4
+   		mul $t2, $t1, $t2							# $t2 = header length * 4
+   		sub $t3, $t0, $t2							# $t3 = payload length... (total length - (4 * header length)
    		
-   		checkOffsetZero:
-   			beqz $v1, saveAtFirstIndex
-   			j saveAtOffsetIndex
-   					
-   		saveAtFirstIndex:
-   			# Save the payload at the first index of msg
-   			move $t8, $s2	# get the starting address of the msg array to save at
-   			j extractUnorderedDataSavePayloadLoop
-   					
-   		saveAtOffsetIndex:
-   			# Save the payload at msg[offset]
-   			ble $v1, $s6, unorderedOldMax
-   			move $s6, $v1			# update the new max index
+   		lhu $t4, 4($s5)		# get the half word with the flags and flags offset
+		srl $t5, $t4, 13	# $t5 = flags
+		sll $t6, $t4, 24	# get rid of 3 flag bits
+		srl $t6, $t6, 24	# $t6 = fragment offset
+   		
+   		# now we need to move the starting address of the payload, and save it depending on the offset
+   		add $s5, $s5, $t1							# $s5 = starting address of the payload
+   		add $t7, $s5, $t3							# $t7 = ending address of the payload
+   		blez $s1, extractUnorderedDataReturnBadN				# if n < 1... return 
+   		bne $s1, 1, unorderedNisNotEqualOne		# n > 1		
+   		bnez $t5, extractUnorderedDataReturnBadN	# n == 1: if $t5 != zero... ERROR
+   		bnez $t6, extractUnorderedDataReturnBadN	# n == 1: if $t6 != zero... ERROR
+   		move $t8, $s2					# move the starting address of msg into $t8
+   		li $t0, 0					# $t0 = num bytes we stored
+   		unorderedOnlyOnePacketLoop:
+   			beq $s5, $t7, unorderedLastChecks 
+   			lbu $t9, 0($s5)		# load the byte from the payload
+   			sb $t9, 0($t8)		# store the byte into the msg array
+   			addi $s5, $s5, 1	# next byte of payload
+   			addi $t8, $t8, 1	# next byte location in msg to save
+   			addi $t0, $t0, 1	# numbytes++
+   			j unorderedOnlyOnePacketLoop
+   														
+   		unorderedNisNotEqualOne:				# n > 1
+   			beq $t5, 2, extractUnorderedDataReturnBadN	# n > 1
+   			bne $t5, 4, unorderedCheckFlagEqualsZero	# n > 1
+   			beqz $t6, unorderedFoundStartPacket	 	# n > 1: flag was 4 but offset was zero, so we found the start packet
+   			j unorderedSavePacketPayload			# Save packet
    			
-   			unorderedOldMax:
-   			add $t8, $v1, $s2	# get the starting address of the msg array to save at
-   			j extractUnorderedDataSavePayloadLoop
+   			unorderedCheckFlagEqualsZero:
+   				bnez $t6, unorderedFoundEndPacket 	# n > 1: flag was 0 and offset was != 0 so we found ending packet
+   				j extractUnorderedDataReturnBadN	# Cant be zero here
+		
+		unorderedFoundStartPacket:
+			addi $s6, $s6, 1				# increment the number of starting packets we have
+			bgt $s6, 1, extractUnorderedDataReturnBadN	# if we have more than 1 starting packet, ERROR
+			move $t8, $s2					# move the starting address of msg into $t8
+   			unorderedFoundStartPacketLoop:
+   				beq $s5, $t7, unorderedNextPacketIter 
+   				lbu $t9, 0($s5)		# load the byte from the payload
+   				sb $t9, 0($t8)		# store the byte into the msg array
+   				addi $s5, $s5, 1	# next byte of payload
+   				addi $t8, $t8, 1	# next byte location in msg to save
+   				j unorderedFoundStartPacketLoop
+
+   		unorderedFoundEndPacket:
+			addi $s7, $s7, 1				# increment the number of ending packets we have
+			bgt $s7, 1, extractUnorderedDataReturnBadN	# if we have more than 1 ending packet, ERROR
+			move $t8, $s2					# move the starting address of msg into $t8
+   			add $t8, $t8, $t6				# $t8 = msg starting address + frag offset 
+			li $t0, 0					# counter for the index we stopped at
+			unorderedFoundEndPacketLoop:
+   				beq $s5, $t7, beforeUnorderedNextPacketIter 
+   				lbu $t9, 0($s5)		# load the byte from the payload
+   				sb $t9, 0($t8)		# store the byte into the msg array
+   				addi $s5, $s5, 1	# next byte of payload
+   				addi $t8, $t8, 1	# next byte location in msg to save
+   				j unorderedFoundEndPacketLoop
+   			beforeUnorderedNextPacketIter:
+   				sub $t0, $t8, $s2
+   				addi $sp, $sp, -4
+   				sw $t0, 0($sp)
+   				j unorderedNextPacketIter
+   				
+   		unorderedSavePacketPayload:
+   			move $t8, $s2					# move the starting address of msg into $t8
+   			add $t8, $t8, $t6				# $t8 = msg starting address + frag offset 
    			
    			extractUnorderedDataSavePayloadLoop:
-   				beq $s5, $t6, unorderedNextPacketIter
-   				lbu $t7, 0($s5)		# load the byte from the payload
-   				sb $t7, 0($t8)
+   				beq $s5, $t7, unorderedNextPacketIter 
+   				lbu $t9, 0($s5)		# load the byte from the payload
+   				sb $t9, 0($t8)		# store the byte into the msg array
    				addi $s5, $s5, 1	# next byte of payload
    				addi $t8, $t8, 1	# next byte location in msg to save
    				j extractUnorderedDataSavePayloadLoop
    						
    				unorderedNextPacketIter:
    					addi $s4, $s4, 1	# next packet index
-   					# do we need to give the location of the next packet or does it do that already?
    					j extractUnorderedDataGetDataLoop
+   					
+   	unorderedLastChecks:
+   		bne $s1, 1, unorderedMultiplePackets
+   		# if we get here, we only have 1 packet
+   		li $v0, 0	# return 0 to show we did it!
+		move $v0, $t0	
    		
-   	extractUnorderedDataGetDataLoopDone:
-   		li $v0, 0
-   		move $v1, $s6			# THIS NEEDS TO BE THE HIGHEST INDEX WE SAVED AT
    		j extractUnorderedDataRestoreAndReturn
    		
+   		unorderedMultiplePackets:				# n > 1
+   			beqz $s6, extractUnorderedDataReturnBadN 			
+   			beqz $s7, extractUnorderedDataReturnBadN
+   			li $v0, 0	# return 0 to show we did it!
+			lw $v1, 0($sp)
+			addi $sp, $sp, 4
+   			j extractUnorderedDataRestoreAndReturn
+   														
    	extractUnorderedDataReturnBadN:
    		li $v0, -1		# return -1
    		li $v1, -1		# return -1
@@ -431,29 +425,17 @@ extractUnorderedData:
    	
    	extractUnorderedDataRestoreAndReturn:
    		# Restoring stack stuff
-    		lw $ra, 0($sp)
-    		lw $s0, 4($sp)
-    		lw $s1, 8($sp)
-    		lw $s2, 12($sp)
-    		lw $s3, 16($sp)
-    		lw $s4, 20($sp)
-    		lw $s5, 24($sp)
-    		lw $s6, 28($sp)
     		lw $s7, 32($sp)
+    		lw $s6, 28($sp)
+    		lw $s5, 24($sp)
+   		lw $s4, 20($sp)			
+    		lw $s3, 16($sp)
+    		lw $s2, 12($sp)
+    		lw $s1, 8($sp)
+   		lw $s0, 4($sp)	
+   		lw $ra, 0($sp)
     		addi $sp, $sp, 36
-		jr $ra
-		
-##############################
-# getFlagAndFlagOffset
-# $a0 = packet: address of the packet.
-# return (flag, flag offset) if success, return -1 if something went wrong
-##############################
-getFlagAndFlagOffset:
-	lhu $t0, 4($a0)		# get the half word with the flags and flags offset
-	srl $v0, $t0, 13	# get the flags
-	sll $v1, $t0, 3		# get rid of 3 flag bits
-	srl $v1, $v1, 3		# get the flag offset
-	jr $ra			# return		
+		jr $ra		
 	
 ##############################
 # processDatagram
@@ -620,12 +602,12 @@ printUnorderedDatagram:
     	# $a0 = parray
     	# $a1 = n
     	# $a2 = msg
+    	# $a3 = packetentrysize
     	move $a0, $s0		# $a0 = startng address of a 1D array of ordered IPv4 packets
     	move $a1, $s1		# $a1 = the number of packets in parray
     	move $a2, $s2		# $a2 = starting byte address of the message in memory
     	move $a3, $s5		# $a3 = packetentrysize
     	jal extractUnorderedData		# call to extractUnorderedData
-
     	bnez $v0, printUnorderedDatagramReturnNegOne	# if extractData returns something OTHER than zero, return -1
     	
     	# call processDatagram
