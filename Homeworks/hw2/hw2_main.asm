@@ -25,9 +25,9 @@ packetNumber_2: .asciiz " has invalid checksum"
 ####################################################################
 
 _start:
-		j toChecksum
-		j toExtractData
-		#j toPrintDatagram
+		#j toChecksum
+		#j toExtractData
+		j toPrintDatagram
 		#j toProcessDatagram
 	##################
 	# replace1st

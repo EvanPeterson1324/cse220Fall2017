@@ -42,20 +42,30 @@ _start:
 	# 9. queen_holes,4,msg_buffer,80		---> Good!  ---> (0, 153)
 	# 10. queen_holes_unsorted,4,msg_buffer,80	---> Good!  ---> (0, 153)
 	
-	la $a0, pm_3pkterr
-	li $a1, 3
-	la $a2, msg_buffer
-	li $a3, 200
-	jal extractUnorderedData
+	#la $a0, pm_3pkterr
+	#li $a1, 3
+	#la $a2, msg_buffer
+	#li $a3, 200
+	#jal extractUnorderedData
 	
+	
+	# int printUnorderedDatagram(Packet[] parray, int n, byte[] msg, String[] sarray, int packetentrysize)
+	la $a0, queen_holes_unsorted
+	li $a1, 4
+	la $a2, msg_buffer
+	la $a3, str_array
+	addi $sp, $sp, -4
+	li $t0, 80
+	sw $t0, 0($sp)
+	jal printUnorderedDatagram
+	addi $sp, $sp, 4
+	
+	# print return value
 	move $a0, $v0
 	li $v0, 1
 	syscall
 	
-	move $a0, $v1
-	li $v0, 1
-	syscall
-	
+
 	# Exit the program
 	li $v0, 10
 	syscall
