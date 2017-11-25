@@ -88,8 +88,9 @@ place:
 	
     place_success:
     	li $t2, 2		# $t2 = num bytes per cell
+    	mul $t5, $a2, $t2	# $t5 = row_size
     	mul $t2, $t0, $t2, 	# $t2 = (2 * col)
-    	mul $t3, $a1, $a3	# $t3 = (row_size * row)
+    	mul $t3, $t5, $a3	# $t3 = (row_size * row)
     	add $t4, $t2, $t3	# (row_size * row) + (2 * col)
     	add $t4, $t4, $a0	# base_address + (row_size * row) + (2 * col)
     	sh $t1, 0($t4)		# store the value ---> cell[row][col] = val
@@ -181,15 +182,66 @@ start_game:
 # PART 2 FUNCTIONS
 ##############################
 
+# Merge Row
+# $a0 = cell[][] board: starting address of the board
+# $a1 = int num_rows: Number of rows in the board
+# $a2 = int num_cols: Number of cols in the board
+# $a3 = int row: The row index we are merging
+# 0($sp) = int direction: the direction of the merge (0 indicates left-right merge, 1 indicates right-left merge
+# returns: Number of cells with non-empty values in the row after merge, -1 on error
+# Errors: row < 0 or row >= num_cols | num_rows/num_cols < 2 | direction is something other than 1 or 0
 merge_row:
-    #Define your code here
-    ############################################
-    # DELETE THIS CODE. Only here to allow main program to run without fully implementing the function
-    li $s0, 0x777
-    li $v0, 0x777
-    ############################################
-    jr $ra
-
+    blt $a1, 2, merge_row_error		# Error: num_rows < 2
+    blt $a2, 2, merge_row_error		# Error: num_cols < 2
+    bltz $a3, merge_row_error		# Error: row < 0
+    bge $a3, $a2, merge_row_error	# Error: row >= num_cols
+    lb $t0, 0($sp)			# $t0 = value of direction
+    bgt $t0, 1, merge_row_error		# Error: direction != 1 or 0
+    bltz $t0, merge_row_error		# Error: direction is negative
+    
+    # Loading $s0 - $s4 with the arguments
+    move $s0, $a0	# $s0 = board
+    move $s1, $a1	# $s1 = num_rows
+    move $s2, $a2	# $s2 = num_cols
+    move $s3, $a3	# $s3 = row to merge
+    move $s4, 0($sp)	# $s4 = direction to merge
+    
+    
+     
+    beqz $s4, merge_row_right		# if direction == 1, merge row right 
+    merge_row_left:
+    	# board[row][num_cols - 1] = base_address + (num_cols * 2 * row) + (2 * (num_cols - 1))
+    	li $t0, 2			# $t0 = 2
+    	move $t1, $s2			# get the value of num_cols
+    	addi $t1, $t1, -1		# $t1 = num_cols - 1
+    	mul $t1, $t1, $t0		# $t1 = 2 * num_cols - 1
+    	mul $t0, $t0, $s2		# $t0 = row_size
+    	mul $s5, $t0, $s3		# $s5 = (row_size * row)
+    	add $s5, $s5, $s0		# $s5 = base_address + (row_size * row)
+    	add $s5, $s5, $t0		# $s5 = base_address + (row_size * row) + (2 * (num_cols - 1))
+    	# Address in $s5 starts at the last element of the row
+    	# TODO: 
+    merge_row_right:
+    	# board[row][0] = base_address + (2 * num_cols * row)
+    	li $t0, 2			# $t0 = 2
+    	mul $t0, $t0, $s2		# $t0 = row_size
+    	mul $s5, $t0, $s3		# $s5 = (row_size * row)
+    	add $s5, $s5, $s0		# $s5 = base_address + (row_size * row)
+    	# Address in $s5 starts at the first element of the row
+    	sub $t0, $s5, $s0		# $t0 = the index we are at in the row
+    	beq $s2, $t0, merge_row_success # if the index we are at is equal to num_cols, we are done
+    	addi $s6, $s5, 1		# $s6 = the 2nd cell we want to check 
+    merge_row_error:
+    	li $v0, -1	     # Error: return -1
+    	j merge_row_return
+    	
+    merge_row_success:
+    	li $v0, 1	     # Success: TODO ---> supposed to return the number of cells with non-empty values in the row after merge
+    	j merge_row_return
+    	
+    merge_row_return:
+    	jr $ra
+	
 merge_col:
     #Define your code here
     ############################################
@@ -235,13 +287,32 @@ user_move:
     li $v1, 0x777
     ############################################
     jr $ra
+    
+####################
+# HELPER FUNCTIONS #
+####################
 
-#################################################################
-# Student defined data section
-#################################################################
-.data
-.align 2  # Align next items to word boundary
+###### get_cell ######
+# $a0 = starting address of board
+# $a1 = num_rows
+# $a2 = num_cols
+# $a3 = row
+# 0($sp) = col
+# returns the address of board[row][col]
+get_cell:
+    # obj_arr[i][j] = base_address + (row_size * row) + (2 * col)
+    # row_size = 2 * (num_cols - 1)
+    li $t0, 2		# $t0 = 2
+    move $t1, $a2	# $t1 = num_cols
+    addi $t1, $t1, -1	# $t1 = num_cols - 1
+    mul $t1, $t1, $t0	# $t1 = row_size: 2 * (num_cols - 1)
+    mul $t1, $t1, $a3	# $t1 = row_size * row
+    lbu $t2, 0($sp)	# $t2 = col
+    mul $t0, $t0, $t2	# $t0 = 2 * col
+    add $t0, $t0, $t2	# $t0 = (row_size * row) + (2 * col)
+    add $v0, $t0, $a0	# base_address + (row_size * row) + (2 * col)
+    jr $ra		# return the cell
 
-#place all data declarations here
-
-
+########################
+# HELPER FUNCTIONS END #
+########################
