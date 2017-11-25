@@ -73,8 +73,8 @@ place:
     blt $a2, 2, place_error	# ERROR: if n_cols < 2
     
     # Get stack stuff
-    move $t0, 0($sp)		# $t0 = int col: The column number of the cell we want to set.	
-    move $t1, 4($sp)		# $t1 = int val: the value to be placed in the cell.
+    lbu $t0, 0($sp)		# $t0 = int col: The column number of the cell we want to set.	
+    lbu $t1, 4($sp)		# $t1 = int val: the value to be placed in the cell.
     
     # Error Checking
     bltz $a3, place_error	# ERROR: if row < 0
@@ -103,14 +103,79 @@ place:
     place_return:
     	jr $ra
 
+# Start Game: (MUST CALL CLEAR_BOARD AND PLACE!!!)
+# $a0 = cell[][] board: the starting address of a 2D array holding the state of the game board
+# $a1 = int num_rows: number of rows on the board
+# $a2 = int num_cols: number of cols on the board
+# $a3 = int r1: row number for the first starting value
+# 0($sp) = int c1: column number for the first starting value
+# 4($sp) = int r2: row number for 2nd starting value
+# 8($sp) = int c2: col number for the 2nd starting value
+# return 0 on success, -1 on error
+# Errors: num_rows/num_cols < 2 | r1/r2 is outside the range of [0, num_rows - 1] | c1/c2 is outside the range of [0, num_cols - 1]
 start_game:
-    #Define your code here
-	############################################
-	# DELETE THIS CODE. Only here to allow main program to run without fully implementing the function
-    li $s0, 0x777
-    li $v0, 0x777
-	############################################
-    jr $ra
+    blt $a1, 2, start_game_error	# ERROR: num_rows < 2
+    blt $a2, 2, start_game_error	# ERROR: num_cols < 2
+    
+    # Load $s0 - $s6 from the arguments
+    move $s0, $a0			# $s0 = board
+    move $s1, $a1			# $s1 = num_rows
+    move $s2, $a2			# $s2 = num_cols
+    move $s3, $a3			# $s3 = r1
+    lbu $s4, 0($sp)			# $s4 = c1
+    lbu $s5, 4($sp)			# $s5 = r2
+    lbu $s6, 8($sp)			# $s6 = c2
+    
+    bltz $s3, start_game_error		# ERROR: r1 < 0
+    bltz $s4, start_game_error		# ERROR: c1 < 0
+    bltz $s5, start_game_error		# ERROR: r2 < 0
+    bltz $s6, start_game_error		# ERROR: c2 < 0
+    
+    bge $s3, $s1, start_game_error		# ERROR: r1 >= num_rows
+    bge $s4, $s2, start_game_error		# ERROR: c1 >= num_cols
+    bge $s5, $s1, start_game_error		# ERROR: r2 >= num_rows
+    bge $s6, $s2, start_game_error		# ERROR: c2 >= num_cols
+    
+    # Call to clear_board first
+    move $a0, $s0	# $a0 = board
+    move $a1, $s1	# $a1 = num_rows
+    move $a2, $s2	# $a2 = num_cols
+    jal clear_board
+    
+    # Place starting value ---> board[r1][c1] = 2
+    li $t0, 2		# starting value
+    move $a0, $s0	# $a0 = board 
+    move $a1, $s1	# $a1 = num_rows
+    move $a2, $s2	# $a2 = num_cols
+    move $a3, $s3	# $a3 = r1
+    addi $sp, $sp, -8
+    sb $t0, 4($sp)	# 4($sp) = starting value #1
+    sb $s4, 0($sp)	# 0($sp) = c1
+    jal place
+    
+    # Place starting value ---> board[r2][c2] = 2
+    li $t0, 2		# starting value
+    move $a0, $s0	# $a0 = board 
+    move $a1, $s1	# $a1 = num_rows
+    move $a2, $s2	# $a2 = num_cols
+    move $a3, $s5	# $a3 = r2
+    sb $t0, 4($sp)	# 4($sp) = starting value #1
+    sb $s6, 0($sp)	# 0($sp) = c2
+    jal place
+    
+    addi $sp, $sp, 8	# put stack point back to where it belongs
+    j start_game_success
+    
+    start_game_success:
+    	li $v0, 1		# SUCCESS: return 0
+    	start_game_return
+    	
+    start_game_error:
+    	li $v0, -1		# ERROR: return -1
+    	j start_game_return
+    
+    start_game_return:
+    	jr $ra
 
 ##############################
 # PART 2 FUNCTIONS
