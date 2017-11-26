@@ -22,30 +22,34 @@ clear_board:
 	blt $a2, 2, clear_board_error	# ERROR if cols < 2
 	
 	# init registers for calculations
-	move $t0, $a0		# $t0 = Base address of board
-	move $t1, $a1		# $t1 = rows
-	move $t2, $a2		# $t2 = cols
-	li $t3, 0		# $t3 = i (current row)
-	li $t4, 0		# $t4 = j (current col)
-	li $t5, 2		# $t5 = size_of(obj), AKA, num bytes per cell
-	mul $t6, $t5, $t2	# $t6 = [num_cols * size_of(obj)] <--- (row_size)
+	move $s0, $a0		# $t0 = Base address of board
+	move $s1, $a1		# $t1 = rows
+	move $s2, $a2		# $t2 = cols
+	li $s3, 0		# $t3 = i (current row)
+	li $s4, 0		# $t4 = j (current col)
+
 	
 	# obj_arr[i][j] = base_address + (row_size * i) + (size_of(obj) * j)
 	clearBoardLoopRows:
-		beq $t1, $t3, clear_board_success		# End of matrix, return 0 or success
+		beq $s1, $s3, clear_board_success		# End of matrix, return 0 or success
 		clearBoardLoopCols:
-			beq $t2, $t4, clearBoardNextRow		# End of cols, next row
-			mul $t7, $t6, $t3  			# $t7 = (row_size * i)
-			mul $t8, $t5, $t4  			# $t8 = (size_of(obj) * j)
-			add $t9, $t7, $t8 			# $t9 = (row_size * i) + (size_of(obj) * j)
-			add $t9, $t9, $t0  			# $t9 = base_address + (row_size * i) + (size_of(obj) * j)
-			li $t8, -1				# $t8 = temp for -1
-			sh $t8, 0($t9)				# STORE THE -1 IN THIS CELL!
-			addi $t4, $t4, 1			# j++
+			beq $s2, $s4, clearBoardNextRow		# End of cols, next row
+			# Load the registers for the get cell function
+			move $a0, $s0		# $a0 = starting address of board
+			move $a1, $s1		# $a1 = num_rows
+			move $a2, $s2		# $a2 = num_cols
+			move $a3, $s3		# $a3 = current row
+			addi $sp, $sp, -4	
+			sb $s4, 0($sp)		# 0($sp) = current col
+			jal get_cell		# FUNCTION CALL TO GET_CELL
+			addi $sp, $sp, 4	# Restore stack space
+			li $t0, -1		# $t0 = temp for -1
+			sh $t0, 0($v0)		# STORE THE -1 IN THIS CELL!
+			addi $s4, $s4, 1	# j++
 			j clearBoardLoopCols	
 		clearBoardNextRow:
-			addi $t3, $t3, 1			# i++
-			li $t4, 0				# j = 0
+			addi $s3, $s3, 1			# i++
+			li $s4, 0				# j = 0
 			j clearBoardLoopRows
 			
 	clear_board_error:
@@ -83,17 +87,14 @@ place:
     bge $t0, $a2, place_error	# ERROR: if col > n_cols
     beq $t1, -1, place_success	# SUCCESS: if val == -1
     blez $t1, place_error	# ERROR: if val <= 0
-    andi $t2, $t1, 1		# CALC:  $t2 = LSB of val
-    bnez $t2, place_error	# ERROR: LSB(val) = 1 so it's NOT a power of 2!
+    addi $t2, $t1, -1		# CALC:  $t2 = val - 1
+    and $t2, $t2, $t1		# CALC: $t2 = val && val - 1... Should be zero if its a power of two
+    bnez $t2, place_error	# ERROR: Result is not zero so its not a power of two
 	
     place_success:
-    	li $t2, 2		# $t2 = num bytes per cell
-    	mul $t5, $a2, $t2	# $t5 = row_size
-    	mul $t2, $t0, $t2, 	# $t2 = (2 * col)
-    	mul $t3, $t5, $a3	# $t3 = (row_size * row)
-    	add $t4, $t2, $t3	# (row_size * row) + (2 * col)
-    	add $t4, $t4, $a0	# base_address + (row_size * row) + (2 * col)
-    	sh $t1, 0($t4)		# store the value ---> cell[row][col] = val
+    	move $s0, $t1		# keep the value we want to store
+    	jal get_cell
+    	sh $s0, 0($v0)		# store the value ---> cell[row][col] = val
     	li $v0, 0		# $v0 = 0, denotes success!
     	j place_return
     
@@ -164,7 +165,7 @@ start_game:
     sb $s6, 0($sp)	# 0($sp) = c2
     jal place
     
-    addi $sp, $sp, 8	# put stack point back to where it belongs
+    addi $sp, $sp, 8	# put stack pointer back to where it belongs
     j start_game_success
     
     start_game_success:
@@ -204,33 +205,156 @@ merge_row:
     move $s1, $a1	# $s1 = num_rows
     move $s2, $a2	# $s2 = num_cols
     move $s3, $a3	# $s3 = row to merge
-    move $s4, 0($sp)	# $s4 = direction to merge
+    lbu  $s4, 0($sp)	# $s4 = direction to merge
+    li $s5, 0		# counter for the column number
+    beqz $s4, merge_row_right		# if direction == 1, merge row right
     
-    
-     
-    beqz $s4, merge_row_right		# if direction == 1, merge row right 
     merge_row_left:
     	# board[row][num_cols - 1] = base_address + (num_cols * 2 * row) + (2 * (num_cols - 1))
-    	li $t0, 2			# $t0 = 2
-    	move $t1, $s2			# get the value of num_cols
-    	addi $t1, $t1, -1		# $t1 = num_cols - 1
-    	mul $t1, $t1, $t0		# $t1 = 2 * num_cols - 1
-    	mul $t0, $t0, $s2		# $t0 = row_size
-    	mul $s5, $t0, $s3		# $s5 = (row_size * row)
-    	add $s5, $s5, $s0		# $s5 = base_address + (row_size * row)
-    	add $s5, $s5, $t0		# $s5 = base_address + (row_size * row) + (2 * (num_cols - 1))
-    	# Address in $s5 starts at the last element of the row
-    	# TODO: 
+    	# Here we are getting the address of the first cell
+    	move $a0, $s0
+    	move $a1, $s1
+    	move $a2, $s2
+    	move $a3, $s3
+    	addi $sp, $sp, -4	 
+    	sb $0, 0($sp)		# Get the first cell in the row
+    	jal get_cell
+    	addi $sp, $sp, 4
+    	move $s7, $v0		# $s7 = the current 1st cell in row
+    	
+    	addi $s5, $s2, -1	# num_cols - 1
+    	move $a0, $s0
+    	move $a1, $s1
+    	move $a2, $s2
+    	move $a3, $s5		# load in num_col - 1 bc we want the last cell in the row
+    	addi $sp, $sp, -4
+    	sb $s5, 0($sp)		# store num_col - 1 for the column bc we only want the starting address of the start of the row
+    	jal get_cell
+    	addi $sp, $sp, 4	# restore stack space
+    	move $s6, $v0		# $s6 = the LAST cell in the window
+    	addi $s5, $s5, -1	# counter - 1 so we can get the next cell
+    		merge_left_loop:
+    		    beq $s7, $s6, merge_row_success
+    		    move $a0, $s0
+    		    move $a1, $s1
+    		    move $a2, $s2
+    		    move $a3, $s3
+    		    addi $sp, $sp, -4 
+    		    sb $s5, 0($sp)		# Get the cell to the left of the first one
+    		    jal get_cell
+    		    addi $sp, $sp, 4		# restore stack space
+    		    move $t0, $v0		# $t0 = the 2nd cell in the window
+    		    
+    		    # compare, if equal, merge
+    		    lh $t1, 0($s7)	# cell value #1
+    		    lh $t2, 0($t0)	# cell value #2
+    		    move $s7, $t0	# keep the address of the 2nd cell for the next iteration
+    		    beq $t1, -1, merge_left_next_iter		# if either value is -1, next iteration
+    		    beq $t2, -1, merge_left_next_iter		# if either value is -1, next iteration
+    		    bne $t1, $t2, merge_left_next_iter		# if the values are not equal, next iteration
+    		    # Here the values are equal, so we will merge!
+    		    add $t1, $t1, $t2				# sum of the values
+    		    addi $s5, $s5, 1				# +1 to the curr col bc we want to store the value at the 1st window
+    		    move $a0, $s0
+    		    move $a1, $s1
+    		    move $a2, $s2
+    		    move $a3, $s3
+    		    addi $sp, $sp, -8
+    		    sh $s5, 0($sp)	# col we are placing at
+    		    sh $t1, 4($sp)	# value to place
+    		    jal place		# places the value
+    		    addi $sp, $sp, 8	# Restore stack
+    		    
+    		    addi $s5, $s5, -1				# -1 to the curr col bc we want to store the value -1 into the 2nd window
+    		    move $a0, $s0
+    		    move $a1, $s1
+    		    move $a2, $s2
+    		    move $a3, $s3
+    		    addi $sp, $sp, -8
+    		    li $t0, -1
+    		    sh $s5, 0($sp)	# col we are placing at
+    		    sh $t0, 4($sp)	# place -1 in the 2nd column
+    		    jal place		# places the value
+    		    addi $sp, $sp, 8	# restore stack
+    		    
+    		    merge_left_next_iter:
+    			addi $s5, $s5, -1	# next column
+    			j merge_left_loop
+    	
     merge_row_right:
-    	# board[row][0] = base_address + (2 * num_cols * row)
-    	li $t0, 2			# $t0 = 2
-    	mul $t0, $t0, $s2		# $t0 = row_size
-    	mul $s5, $t0, $s3		# $s5 = (row_size * row)
-    	add $s5, $s5, $s0		# $s5 = base_address + (row_size * row)
-    	# Address in $s5 starts at the first element of the row
-    	sub $t0, $s5, $s0		# $t0 = the index we are at in the row
-    	beq $s2, $t0, merge_row_success # if the index we are at is equal to num_cols, we are done
-    	addi $s6, $s5, 1		# $s6 = the 2nd cell we want to check 
+    	# board[row][0] = get_cell(board, num_rows, num_cols, row, 0)
+    	
+    	# Here we are getting the address of the last cell
+    	addi $t0, $s2, -1	# num_cols - 1
+    	move $a0, $s0
+    	move $a1, $s1
+    	move $a2, $s2
+    	move $a3, $t0		# load in num_col - 1 bc we want the last cell in the row
+    	addi $sp, $sp, -4
+    	sb $s5, 0($sp)		# store zero for the column bc we only want the starting address of the start of the row
+    	jal get_cell
+    	addi $sp, $sp, 4	# restore stack space
+    	move $s6, $v0		# $s6 = the LAST cell in the window
+    	
+    	move $a0, $s0
+    	move $a1, $s1
+    	move $a2, $s2
+    	move $a3, $s3
+    	addi $sp, $sp, -4	 
+    	sb $s5, 0($sp)		# Get the cell to the right of the first one
+    	jal get_cell
+    	addi $sp, $sp, 4
+    	move $s7, $v0		# $s7 = the current 1st cell in the window
+    	addi $s5, $s5, 1	# next column
+    	
+    		merge_right_loop:
+    		    beq $s7, $s6, merge_row_success
+    		    move $a0, $s0
+    		    move $a1, $s1
+    		    move $a2, $s2
+    		    move $a3, $s3
+    		    addi $sp, $sp, -4 
+    		    sb $s5, 0($sp)		# Get the cell to the right of the first one
+    		    jal get_cell
+    		    addi $sp, $sp, 4		# restore stack space
+    		    move $t0, $v0		# $t0 = the 2nd cell in the window
+    		    
+    		    # compare, if equal, merge
+    		    lh $t1, 0($s7)	# cell value #1
+    		    lh $t2, 0($t0)	# cell value #2
+    		    move $s7, $t0	# keep the address of the 2nd cell for the next iteration
+    		    beq $t1, -1, merge_right_next_iter		# if either value is -1, next iteration
+    		    beq $t2, -1, merge_right_next_iter		# if either value is -1, next iteration
+    		    bne $t1, $t2, merge_right_next_iter		# if the values are not equal, next iteration
+    		    # Here the values are equal, so we will merge!
+    		    add $t1, $t1, $t2				# sum of the values
+    		    addi $s5, $s5, -1				# -1 to the curr col bc we want to store the value at the 1st window
+    		    move $a0, $s0
+    		    move $a1, $s1
+    		    move $a2, $s2
+    		    move $a3, $s3
+    		    addi $sp, $sp, -8
+    		    sh $s5, 0($sp)	# col we are placing at
+    		    sh $t1, 4($sp)	# value to place
+    		    jal place		# places the value
+    		    addi $sp, $sp, 8	# Restore stack
+    		    
+    		    addi $s5, $s5, 1				# +1 to the curr col bc we want to store the value -1 into the 2nd window
+    		    move $a0, $s0
+    		    move $a1, $s1
+    		    move $a2, $s2
+    		    move $a3, $s3
+    		    addi $sp, $sp, -8
+    		    li $t0, -1
+    		    sh $s5, 0($sp)	# col we are placing at
+    		    sh $t0, 4($sp)	# place -1 in the 2nd column
+    		    jal place		# places the value
+    		    addi $sp, $sp, 8	# restore stack
+    		    
+    		    merge_right_next_iter:
+    			addi $s5, $s5, 1	# next column
+    			j merge_right_loop
+    	
     merge_row_error:
     	li $v0, -1	     # Error: return -1
     	j merge_row_return
@@ -313,6 +437,28 @@ get_cell:
     add $v0, $t0, $a0	# base_address + (row_size * row) + (2 * col)
     jr $ra		# return the cell
 
+##### get_num_empty_row_cells #####
+# $a0 = starting address of board
+# $a1 = num_rows
+# $a2 = num_cols
+# $a3 = row
+# returns the number of empty cells in a specified row
+get_num_empty_row_cells:
+    # TODO
+    jr $ra
+    
+##### get_num_empty_col_cells #####
+# $a0 = starting address of board
+# $a1 = num_rows
+# $a2 = num_cols
+# $a3 = col
+# returns the number of empty cells in a specified col
+get_num_empty_col_cells:
+    # TODO
+    jr $ra
+    
+    
+    
 ########################
 # HELPER FUNCTIONS END #
 ########################
