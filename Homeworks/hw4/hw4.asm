@@ -17,9 +17,19 @@
 # $a2 = int numCols
 # returns 0 if success,-1 on failure (error if numRows or numCols < 2)
 clear_board:
+	addi $sp, $sp, -24
+	sw $ra, 0($sp)
+    	sw $s0, 4($sp)
+    	sw $s1, 8($sp)
+    	sw $s2, 12($sp)
+    	sw $s3, 16($sp)
+    	sw $s4, 20($sp)
+	
 	# Error checking
 	blt $a1, 2, clear_board_error	# ERROR if rows < 2
 	blt $a2, 2, clear_board_error	# ERROR if cols < 2
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
 	
 	# init registers for calculations
 	move $s0, $a0		# $t0 = Base address of board
@@ -58,9 +68,15 @@ clear_board:
 	
 	clear_board_success:
 		li $v0, 0					# We were successful in clearing the board!
-		j clear_board_return
 		
 	clear_board_return:
+		lw $ra, 0($sp)
+    		lw $s0, 4($sp)
+    		lw $s1, 8($sp)
+    		lw $s2, 12($sp)
+    		lw $s3, 16($sp)
+    		lw $s4, 20($sp)
+		addi $sp, $sp, 24
 		jr $ra
 # Place
 # $a0 = int[][] board: starting address of a 2d array holding the game state
@@ -72,19 +88,23 @@ clear_board:
 # returns 0 for success or -1 for error
 # ERRORS: n_rows or n_cols < 2 | row/col is outside the range of [0, n_rows - 1], value is NOT -1 and NOT a power of 2>=2
 place:
+    # Get stack stuff
+    lh $t0, 0($sp)		# $t0 = int col: The column number of the cell we want to set.	
+    lh $t1, 4($sp)		# $t1 = int val: the value to be placed in the cell.
+   
+    addi $sp, $sp, -8
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    
     # Error checking
     blt $a1, 2, place_error	# ERROR: if n_rows < 2
     blt $a2, 2, place_error	# ERROR: if n_cols < 2
     
-    # Get stack stuff
-    lbu $t0, 0($sp)		# $t0 = int col: The column number of the cell we want to set.	
-    lbu $t1, 4($sp)		# $t1 = int val: the value to be placed in the cell.
-    
     # Error Checking
     bltz $a3, place_error	# ERROR: if row < 0
     bltz $t0, place_error	# ERROR: if col < 0
-    bge $a3, $a1, place_error	# ERROR: if row > n_rows
-    bge $t0, $a2, place_error	# ERROR: if col > n_cols
+    bge $a3, $a1, place_error	# ERROR: if row >= n_rows
+    bge $t0, $a2, place_error	# ERROR: if col >= n_cols
     beq $t1, -1, place_success	# SUCCESS: if val == -1
     blez $t1, place_error	# ERROR: if val <= 0
     addi $t2, $t1, -1		# CALC:  $t2 = val - 1
@@ -94,7 +114,8 @@ place:
     place_success:
     	move $s0, $t1		# keep the value we want to store
     	jal get_cell
-    	sh $s0, 0($v0)		# store the value ---> cell[row][col] = val
+    	move $t0, $v0
+    	sh $s0, 0($t0)		# store the value ---> cell[row][col] = val
     	li $v0, 0		# $v0 = 0, denotes success!
     	j place_return
     
@@ -103,6 +124,9 @@ place:
     	j place_return
     	
     place_return:
+	lw $ra, 0($sp)
+	lw $s0, 4($sp)
+	addi $sp, $sp, 8
     	jr $ra
 
 # Start Game: (MUST CALL CLEAR_BOARD AND PLACE!!!)
@@ -116,18 +140,32 @@ place:
 # return 0 on success, -1 on error
 # Errors: num_rows/num_cols < 2 | r1/r2 is outside the range of [0, num_rows - 1] | c1/c2 is outside the range of [0, num_cols - 1]
 start_game:
+
     blt $a1, 2, start_game_error	# ERROR: num_rows < 2
     blt $a2, 2, start_game_error	# ERROR: num_cols < 2
+    lh $t0, 0($sp)			# $t0 = c1
+    lh $t1, 4($sp)			# $t1 = r2
+    lh $t2, 8($sp)			# $t2 = c2
+    
+    addi $sp, $sp, -32
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    sw $s6, 28($sp)
     
     # Load $s0 - $s6 from the arguments
     move $s0, $a0			# $s0 = board
     move $s1, $a1			# $s1 = num_rows
     move $s2, $a2			# $s2 = num_cols
     move $s3, $a3			# $s3 = r1
-    lbu $s4, 0($sp)			# $s4 = c1
-    lbu $s5, 4($sp)			# $s5 = r2
-    lbu $s6, 8($sp)			# $s6 = c2
-    
+    move $s4, $t0			# $s4 = c1
+    move $s5, $t1			# $s5 = r2
+    move $s6, $t2			# $s6 = c2
+
     bltz $s3, start_game_error		# ERROR: r1 < 0
     bltz $s4, start_game_error		# ERROR: c1 < 0
     bltz $s5, start_game_error		# ERROR: r2 < 0
@@ -143,7 +181,7 @@ start_game:
     move $a1, $s1	# $a1 = num_rows
     move $a2, $s2	# $a2 = num_cols
     jal clear_board
-    
+    beq $v0, -1, start_game_error
     # Place starting value ---> board[r1][c1] = 2
     li $t0, 2		# starting value
     move $a0, $s0	# $a0 = board 
@@ -151,10 +189,10 @@ start_game:
     move $a2, $s2	# $a2 = num_cols
     move $a3, $s3	# $a3 = r1
     addi $sp, $sp, -8
-    sb $t0, 4($sp)	# 4($sp) = starting value #1
-    sb $s4, 0($sp)	# 0($sp) = c1
+    sh $t0, 4($sp)	# 4($sp) = starting value #1
+    sh $s4, 0($sp)	# 0($sp) = c1
     jal place
-    
+    beq $v0, -1, start_game_error
     # Place starting value ---> board[r2][c2] = 2
     li $t0, 2		# starting value
     move $a0, $s0	# $a0 = board 
@@ -164,19 +202,28 @@ start_game:
     sb $t0, 4($sp)	# 4($sp) = starting value #1
     sb $s6, 0($sp)	# 0($sp) = c2
     jal place
-    
+    beq $v0, -1, start_game_error
     addi $sp, $sp, 8	# put stack pointer back to where it belongs
     j start_game_success
     
     start_game_success:
     	li $v0, 1		# SUCCESS: return 0
-    	start_game_return
+    	j start_game_return
     	
     start_game_error:
     	li $v0, -1		# ERROR: return -1
     	j start_game_return
     
     start_game_return:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+    	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	lw $s5, 24($sp)
+    	lw $s6, 28($sp)
+    	addi $sp, $sp, 32
     	jr $ra
 
 ##############################
@@ -196,16 +243,27 @@ merge_row:
     blt $a2, 2, merge_row_error		# Error: num_cols < 2
     bltz $a3, merge_row_error		# Error: row < 0
     bge $a3, $a2, merge_row_error	# Error: row >= num_cols
-    lb $t0, 0($sp)			# $t0 = value of direction
+    lh $t0, 0($sp)			# $t0 = value of direction
     bgt $t0, 1, merge_row_error		# Error: direction != 1 or 0
     bltz $t0, merge_row_error		# Error: direction is negative
+    
+    addi $sp, $sp, -36
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    sw $s6, 28($sp)
+    sw $s7, 32($sp)
     
     # Loading $s0 - $s4 with the arguments
     move $s0, $a0	# $s0 = board
     move $s1, $a1	# $s1 = num_rows
     move $s2, $a2	# $s2 = num_cols
     move $s3, $a3	# $s3 = row to merge
-    lbu  $s4, 0($sp)	# $s4 = direction to merge
+    move  $s4, $t0	# $s4 = direction to merge
     li $s5, 0		# counter for the column number
     beqz $s4, merge_row_right		# if direction == 1, merge row right
     
@@ -248,22 +306,15 @@ merge_row:
     		    # compare, if equal, merge
     		    lh $t1, 0($s7)	# cell value #1
     		    lh $t2, 0($t0)	# cell value #2
-    		    move $s7, $t0	# keep the address of the 2nd cell for the next iteration
+    		    
     		    beq $t1, -1, merge_left_next_iter		# if either value is -1, next iteration
     		    beq $t2, -1, merge_left_next_iter		# if either value is -1, next iteration
     		    bne $t1, $t2, merge_left_next_iter		# if the values are not equal, next iteration
     		    # Here the values are equal, so we will merge!
     		    add $t1, $t1, $t2				# sum of the values
-    		    addi $s5, $s5, 1				# +1 to the curr col bc we want to store the value at the 1st window
-    		    move $a0, $s0
-    		    move $a1, $s1
-    		    move $a2, $s2
-    		    move $a3, $s3
-    		    addi $sp, $sp, -8
-    		    sh $s5, 0($sp)	# col we are placing at
-    		    sh $t1, 4($sp)	# value to place
-    		    jal place		# places the value
-    		    addi $sp, $sp, 8	# Restore stack
+    		    sh $t1, 0($t1)
+    		    li $t3, -1
+		    sh $t3, 0($t0)	# store -1 into the 2nnd cell
     		    
     		    addi $s5, $s5, -1				# -1 to the curr col bc we want to store the value -1 into the 2nd window
     		    move $a0, $s0
@@ -278,6 +329,7 @@ merge_row:
     		    addi $sp, $sp, 8	# restore stack
     		    
     		    merge_left_next_iter:
+    		    	move $s7, $t0	# keep the address of the 2nd cell for the next iteration
     			addi $s5, $s5, -1	# next column
     			j merge_left_loop
     	
@@ -322,37 +374,17 @@ merge_row:
     		    # compare, if equal, merge
     		    lh $t1, 0($s7)	# cell value #1
     		    lh $t2, 0($t0)	# cell value #2
-    		    move $s7, $t0	# keep the address of the 2nd cell for the next iteration
     		    beq $t1, -1, merge_right_next_iter		# if either value is -1, next iteration
     		    beq $t2, -1, merge_right_next_iter		# if either value is -1, next iteration
     		    bne $t1, $t2, merge_right_next_iter		# if the values are not equal, next iteration
     		    # Here the values are equal, so we will merge!
     		    add $t1, $t1, $t2				# sum of the values
-    		    addi $s5, $s5, -1				# -1 to the curr col bc we want to store the value at the 1st window
-    		    move $a0, $s0
-    		    move $a1, $s1
-    		    move $a2, $s2
-    		    move $a3, $s3
-    		    addi $sp, $sp, -8
-    		    sh $s5, 0($sp)	# col we are placing at
-    		    sh $t1, 4($sp)	# value to place
-    		    jal place		# places the value
-    		    addi $sp, $sp, 8	# Restore stack
-    		    
-    		    addi $s5, $s5, 1				# +1 to the curr col bc we want to store the value -1 into the 2nd window
-    		    move $a0, $s0
-    		    move $a1, $s1
-    		    move $a2, $s2
-    		    move $a3, $s3
-    		    addi $sp, $sp, -8
-    		    li $t0, -1
-    		    sh $s5, 0($sp)	# col we are placing at
-    		    sh $t0, 4($sp)	# place -1 in the 2nd column
-    		    jal place		# places the value
-    		    addi $sp, $sp, 8	# restore stack
-    		    
+    		    sh $t1, 0($s7)
+    		    li $t3, -1
+		    sh $t3, 0($t0)	# store -1 into the 2nnd cell
     		    merge_right_next_iter:
     			addi $s5, $s5, 1	# next column
+    			move $s7, $t0	# keep the address of the 2nd cell for the next iteration
     			j merge_right_loop
     	
     merge_row_error:
@@ -364,6 +396,16 @@ merge_row:
     	j merge_row_return
     	
     merge_row_return:
+    	sw $ra, 0($sp)
+    	sw $s0, 4($sp)
+    	sw $s1, 8($sp)
+    	sw $s2, 12($sp)
+    	sw $s3, 16($sp)
+    	sw $s4, 20($sp)
+    	sw $s5, 24($sp)
+    	sw $s6, 28($sp)
+    	sw $s7, 32($sp)
+    	addi $sp, $sp, 36
     	jr $ra
 	
 merge_col:
@@ -428,14 +470,16 @@ get_cell:
     # row_size = 2 * (num_cols - 1)
     li $t0, 2		# $t0 = 2
     move $t1, $a2	# $t1 = num_cols
-    addi $t1, $t1, -1	# $t1 = num_cols - 1
-    mul $t1, $t1, $t0	# $t1 = row_size: 2 * (num_cols - 1)
+    mul $t1, $t1, $t0	# $t1 = row_size = 2 * (num_cols)
     mul $t1, $t1, $a3	# $t1 = row_size * row
     lbu $t2, 0($sp)	# $t2 = col
     mul $t0, $t0, $t2	# $t0 = 2 * col
-    add $t0, $t0, $t2	# $t0 = (row_size * row) + (2 * col)
+    add $t0, $t0, $t1	# $t0 = (row_size * row) + (2 * col)
     add $v0, $t0, $a0	# base_address + (row_size * row) + (2 * col)
     jr $ra		# return the cell
+
+	
+
 
 ##### get_num_empty_row_cells #####
 # $a0 = starting address of board
