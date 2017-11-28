@@ -10,7 +10,7 @@
 # PART 1 FUNCTIONS
 ##############################
 
-# Clear Board
+###### clear_board ######
 # This function will set all the cells of the board array to -1
 # $a0 = cell[][] board
 # $a1 = int numRows
@@ -78,7 +78,8 @@ clear_board:
     		lw $s4, 20($sp)
 		addi $sp, $sp, 24
 		jr $ra
-# Place
+		
+###### place ######
 # $a0 = int[][] board: starting address of a 2d array holding the game state
 # $a1 = int n_rows: number of rows in the board
 # $a2 = int n_cols: number of columns in the board
@@ -129,7 +130,7 @@ place:
 	addi $sp, $sp, 8
     	jr $ra
 
-# Start Game: (MUST CALL CLEAR_BOARD AND PLACE!!!)
+###### Start Game ######
 # $a0 = cell[][] board: the starting address of a 2D array holding the state of the game board
 # $a1 = int num_rows: number of rows on the board
 # $a2 = int num_cols: number of cols on the board
@@ -228,10 +229,10 @@ start_game:
     	jr $ra
 
 ##############################
-# PART 2 FUNCTIONS
+# 	PART 2 FUNCTIONS     #    
 ##############################
 
-# Merge Row
+###### merge_row ######
 # $a0 = cell[][] board: starting address of the board
 # $a1 = int num_rows: Number of rows in the board
 # $a2 = int num_cols: Number of cols in the board
@@ -399,7 +400,15 @@ merge_row:
     	lw $s7, 32($sp)
     	addi $sp, $sp, 36
     	jr $ra
-	
+
+###### merge_col ######
+# $a0 = cell[][] board: starting address of the board
+# $a1 = int num_rows: Number of rows in the board
+# $a2 = int num_cols: Number of cols in the board
+# $a3 = int col: The col index we are merging
+# 0($sp) = int direction: the direction of the merge (0 indicates bottom to top merge, 1 indicates top to bottom merge
+# returns: Number of cells with non-empty values in the col after merge, or -1 on error
+# Errors: row < 0 or row >= num_cols | num_rows/num_cols < 2 | direction is something other than 1 or 0	
 merge_col:
     blt $a1, 2, merge_col_error		# Error: num_rows < 2
     blt $a2, 2, merge_col_error		# Error: num_cols < 2
@@ -560,23 +569,386 @@ merge_col:
     	addi $sp, $sp, 36
     	jr $ra
 
+###### shift_row ######
+# $a0 = cell[][] board: starting address of the board
+# $a1 = int num_rows: Number of rows in the board
+# $a2 = int num_cols: Number of cols in the board
+# $a3 = int row: The row index we are shifting
+# 0($sp) = int direction: the direction of the shift (0 indicates left shift, 1 indicates right shift
+# returns: Number of cells shifted, -1 on error
+# Errors: row < 0 or row >= num_cols | num_rows/num_cols < 2 | direction is something other than 1 or 0
 shift_row:
-    jr $ra
+    lb $t0, 0($sp)
+    
+    # Saving $s0 - $s7, $ra
+    addi $sp, $sp, -36		# Allocate stack space
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    
+    # Moving arguements into saved registers
+    move $s0, $a0	# $s0 = board
+    move $s1, $a1	# $s1 = num_rows
+    move $s2, $a2	# $s2 = num_cols
+    move $s3, $a3	# $s3 = row
+    move $s4, $t0	# $s4 = direction
+    li $s5, 0		# $s5 = count of how many cells we shifted
+    li $s6, 0		# $s6 = ???
+    li $s7, 0		# $s7 = ???
+    
+    # Error Checking
+    blt $s1, 2, shift_row_error		# ERROR: num_rows < 2
+    blt $s2, 2, shift_row_error		# ERROR: num_cols < 2
+    bltz $s3, shift_row_error		# ERROR: row < 0
+    bge $s3, $s1, shift_row_error	# ERROR: row >= num_rows
+    bltz $s4, shift_row_error		# ERROR: direction < 0
+    bgt $s4, 1, shift_row_error		# ERROR: direction > 1
+    beqz $s4, shift_row_left		# AFTER THIS CHECK, $s4 IS FREE TO USE!      <-------- LOOK!
+    
+    shift_row_right:
+    	addi $s4, $a2, -2	# $s4 = i, (num_cols - 2)
+    	# Starting cell = board[row][i], where i = (num_cols - 2)
+    	move $a0, $s0		# $a0 = starting address of board
+    	move $a1, $s1		# $a1 = num_rows
+    	move $a2, $s2		# $a2 = num_cols
+    	move $a3, $s3, 		# $a3 = row we want to shift
+    	addi $sp, $sp, -4	# Allocate stack space
+    	sb $s4, 0($sp)		# $a4 (1st argument on stack) = (num_cols - 2), the first cell we check
+    	jal get_cell
+    	addi $sp, $sp, 4	# Restore stack space
+    	move $t0, $v0		# $t0 = first cell address
+    	addi $s4, $s4, -1	# i-- for the next iteration
+    	shift_row_right_loop:
+    		beq $s4, -1, shift_row_success		# if i = -1, then stop
+    		lh $t1, 0($t0)				# $t1 = current cell value
+    		bne $t1, -1, shift_row_right_check_prev	# if the value here is NOT -1, check the prev cell
+    		# The value is -1, so get the next cell and go to the next iteration
+    		move $a0, $s0		# $a0 = starting address of board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		move $a3, $s3, 		# $a3 = row we want to shift
+    		addi $sp, $sp, -4	# Allocate stack space
+    		sb $s4, 0($sp)		# $a4 (1st argument on stack) = i, the next cell in the row
+    		jal get_cell
+    		addi $sp, $sp, 4	# Restore stack space
+    		move $t0, $v0		# $t0 = next cell address
+    		addi $s4, $s4, -1	# i--
+    		j shift_row_right_loop
+    		
+    		shift_row_right_check_prev:
+    			addi $t2, $s4, 1		# $t2 = index of the prev cell
+    			# while loop to check the previous cells
+    			shift_row_right_check_prev_loop:
+    				bge $t2, $s2 shift_row_right_loop	# if the index of the prev cell is -1, next iteration of shift_row_right
+    				# Get the previous cell
+    				move $a0, $s0		# $a0 = starting address of board
+    				move $a1, $s1		# $a1 = num_rows
+    				move $a2, $s2		# $a2 = num_cols
+    				move $a3, $s3, 		# $a3 = row we want to get the value of
+    				addi $sp, $sp, -16	# Allocate stack space
+    				sw $t2, 0($sp)		# $a4 (1st argument on stack) = i, the prev cell in the row
+    				sw $t0, 4($sp)		
+    				sw $t1, 8($sp)
+    				sw $t2, 12($sp)
+    				jal get_cell
+    				lw $t0, 4($sp)
+    				lw $t1, 8($sp)
+    				lw $t2, 12($sp)
+    				addi $sp, $sp, 16	# Restore stack space
+    				move $t3, $v0		# $t3 = previous cell address
+    				lh $t4, 0($t3)		# $t4 = previous cell value
+    				beq $t4, -1, shift_row_check_prev_right_loop_neg_one	# if it's neg 1, we shift
+    				j shift_row_right_loop					# since prev != -1, we just go to the next iter
+    				
+    				shift_row_check_prev_right_loop_neg_one:
+    					sh $t1, 0($t3)		# Prev cell val = current
+    					sh $t4, 0($t0)		# Current cell val = -1
+    					addi $t2, $t2, 1	# tempI++
+    					addi $s5, $s5, 1	# num cells shifted++
+    					j shift_row_right_check_prev_loop
+    shift_row_left:
+    	li $s4, 0		# $s4 = i, (the index of the current cell we are trying to shift)
+    	# Starting cell = board[row][i], where i = 0
+    	move $a0, $s0		# $a0 = starting address of board
+    	move $a1, $s1		# $a1 = num_rows
+    	move $a2, $s2		# $a2 = num_cols
+    	move $a3, $s3, 		# $a3 = row we want to shift
+    	addi $sp, $sp, -4	# Allocate stack space
+    	sb $s4, 0($sp)		# $a4 (1st argument on stack) = 0, the first cell in the row
+    	jal get_cell
+    	addi $sp, $sp, 4	# Restore stack space
+    	move $t0, $v0		# $t0 = first cell address
+    	addi $s4, $s4, 1	# i++ for the next iteration
+    	shift_row_left_loop:
+    		beq $s2, $s4, shift_row_success		# if i = the ending index, then stop
+    		lh $t1, 0($t0)				# load the value at the current cell
+    		bne $t1, -1, shift_row_Left_check_prev	# if the value here is NOT -1, check the prev cell
+    		
+    		# The value is -1, so get the next cell and go to the next iteration
+    		move $a0, $s0		# $a0 = starting address of board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		move $a3, $s3, 		# $a3 = row we want to shift
+    		addi $sp, $sp, -4	# Allocate stack space
+    		sb $s4, 0($sp)		# $a4 (1st argument on stack) = i, the next cell in the row
+    		jal get_cell
+    		addi $sp, $sp, 4	# Restore stack space
+    		move $t0, $v0		# $t0 = next cell address
+    		addi $s4, $s4, 1	# i++
+    		j shift_row_left_loop
+    		
+    		shift_row_left_check_prev:
+    			addi $t2, $s4, -1		# $t2 = index of the prev cell
+    			# while loop to check the previous cells
+    			shift_row_left_check_prev_loop:
+    				bltz $t2, shift_row_left_loop	# if the index of the prev cell is -1, next iteration of shift_row_left
+    				# Get the previous cell
+    				move $a0, $s0		# $a0 = starting address of board
+    				move $a1, $s1		# $a1 = num_rows
+    				move $a2, $s2		# $a2 = num_cols
+    				move $a3, $s3, 		# $a3 = row we want to get the value of
+    				addi $sp, $sp, -16	# Allocate stack space
+    				sw $t2, 0($sp)		# $a4 (1st argument on stack) = i, the prev cell in the row
+    				sw $t0, 4($sp)
+    				sw $t1, 8($sp)
+    				sw $t2, 12($sp)
+    				jal get_cell
+    				lw $t0, 4($sp)
+    				lw $t1, 8($sp)
+    				lw $t2, 12($sp)
+    				addi $sp, $sp, 16	# Restore stack space
+    				move $t3, $v0		# $t3 = previous cell address
+    				lh $t4, 0($t3)		# $t4 = previous cell value
+    				beq $t4, -1, shift_row_check_prev_left_loop_neg_one	# if it's neg 1, we shift
+    				j shift_row_left_loop					# since prev != -1, we just go to the next iter
+    				
+    				shift_row_check_prev_left_loop_neg_one:
+    					sh $t1, 0($t3)		# Prev cell val = current
+    					sh $t4, 0($t0)		# Current cell val = -1
+    					addi $t2, $t2, -1	# tempI--
+    					addi $s5, $s5, 1	# num cells shifted++
+    					j shift_row_left_check_prev_loop
+    shift_row_success:
+    	move $v0, $s5	# $v0 = number of cells we shifted
+    	j shift_row_return
+    	
+    shift_row_error:
+    	li $v0, -1	# Error: Something went wrong!
+    	j shift_row_return 
+    
+    shift_row_return:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+    	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	lw $s5, 24($sp)
+    	addi $sp, $sp, 28		# Restore stack space
+    	jr $ra
 
+###### shift_col ######
+# $a0 = cell[][] board: starting address of the board
+# $a1 = int num_rows: Number of rows in the board
+# $a2 = int num_cols: Number of cols in the board
+# $a3 = int col: The col index we are shifting
+# 0($sp) = int direction: the direction of the shift (0 indicates up shift, 1 indicates down shift
+# returns: Number of cells shifted, -1 on error
+# Errors: row < 0 or row >= num_cols | num_rows/num_cols < 2 | direction is something other than 1 or 0
 shift_col:
-    jr $ra
+    lb $t0, 0($sp)
+    
+    # Saving $s0 - $s7, $ra
+    addi $sp, $sp, -28	# Allocate stack space
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    
+    # Moving arguements into saved registers
+    move $s0, $a0	# $s0 = board
+    move $s1, $a1	# $s1 = num_rows
+    move $s2, $a2	# $s2 = num_cols
+    move $s3, $a3	# $s3 = col
+    move $s4, $t0	# $s4 = direction
+    li $s5, 0		# $s5 = counter for how much we shifted
+    
+    # Error Checking
+    blt $s1, 2, shift_col_error		# ERROR: num_rows < 2
+    blt $s2, 2, shift_col_error		# ERROR: num_cols < 2
+    bltz $s3, shift_col_error		# ERROR: col < 0
+    bge $s3, $s2, shift_col_error	# ERROR: col >= num_cols
+    bltz $s4, shift_col_error		# ERROR: direction < 0
+    bgt $s4, 1, shift_col_error		# ERROR: direction > 1
+    beqz $s4, shift_col_up		# AFTER THIS CHECK, $s4 IS FREE TO USE!      <-------- LOOK!
+    
+    shift_col_down:
+    	addi $s4, $s1, -2	# $s4 = i, (num_rows - 2)
+    	# Starting cell = board[row][i], where i = (num_rows - 2)
+    	move $a0, $s0		# $a0 = starting address of board
+    	move $a1, $s1		# $a1 = num_rows
+    	move $a2, $s2		# $a2 = num_cols
+    	move $a3, $s4, 		# $a3 = row we are starting on
+    	addi $sp, $sp, -4	# Allocate stack space
+    	sh $s3, 0($sp)		# $a4 (1st argument on stack) = col we want to shift
+    	jal get_cell
+    	addi $sp, $sp, 4	# Restore stack space
+    	move $t0, $v0		# $t0 = first cell address
+    	addi $s4, $s4, -1	# i-- for the next iteration
+    	shift_col_down_loop:
+    		beq $s4, -1, shift_col_success		# if i = -1, then stop
+    		lh $t1, 0($t0)				# $t1 = current cell value
+    		bne $t1, -1, shift_col_down_check_prev	# if the value here is NOT -1, check the prev cell
+    		# The value is -1, so get the next cell and go to the next iteration
+    		move $a0, $s0		# $a0 = starting address of board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		move $a3, $s4, 		# $a3 = row are currently on
+    		addi $sp, $sp, -4	# Allocate stack space
+    		sh $s3, 0($sp)		# $a4 (1st argument on stack) = col we want to shift
+    		jal get_cell		
+    		addi $sp, $sp, 4	# Restore stack space
+    		move $t0, $v0		# $t0 = next cell address
+    		addi $s4, $s4, -1	# i--
+    		j shift_col_down_loop
+    		
+    		shift_col_down_check_prev:
+    			addi $t2, $s4, 1		# $t2 = index of the prev cell
+    			# while loop to check the previous cells
+    			shift_col_down_check_prev_loop:
+    				bge $t2, $s1 shift_col_down_loop	# if the index of the prev cell is num_rows, next iteration of shift_row_right
+    				# Get the previous cell
+    				move $a0, $s0		# $a0 = starting address of board
+    				move $a1, $s1		# $a1 = num_rows
+    				move $a2, $s2		# $a2 = num_cols
+    				move $a3, $t2, 		# $a3 = row we want to get the value of
+    				addi $sp, $sp, -16	# Allocate stack space
+    				sw $s4, 0($sp)		# $a4 (1st argument on stack) = i, the prev cell in the col
+    				sw $t0, 4($sp)		
+    				sw $t1, 8($sp)
+    				sw $t2, 12($sp)
+    				jal get_cell
+    				lw $t0, 4($sp)
+    				lw $t1, 8($sp)
+    				lw $t2, 12($sp)
+    				addi $sp, $sp, 16	# Restore stack space
+    				move $t3, $v0		# $t3 = previous cell address
+    				lh $t4, 0($t3)		# $t4 = previous cell value
+    				beq $t4, -1, shift_col_check_prev_down_loop_neg_one	# if it's neg 1, we shift
+    				j shift_col_down_loop					# since prev != -1, we just go to the next iter
+    				
+    				shift_col_check_prev_down_loop_neg_one:
+    					sh $t1, 0($t3)		# Prev cell val = current
+    					sh $t4, 0($t0)		# Current cell val = -1
+    					addi $t2, $t2, 1	# tempI++
+    					addi $s5, $s5, 1	# num cells shifted++
+    					j shift_col_down_check_prev_loop
+    shift_col_up:
+    	li $s4, 0		# $s4 = i, (the index of the current cell we are trying to shift)
+    	# Starting cell = board[row][i], where i = 0
+    	move $a0, $s0		# $a0 = starting address of board
+    	move $a1, $s1		# $a1 = num_rows
+    	move $a2, $s2		# $a2 = num_cols
+    	move $a3, $s4, 		# $a3 = row we are currently on
+    	addi $sp, $sp, -4	# Allocate stack space
+    	sb $s3, 0($sp)		# $a4 (1st argument on stack) = 
+    	jal get_cell
+    	addi $sp, $sp, 4	# Restore stack space
+    	move $t0, $v0		# $t0 = first cell address
+    	addi $s4, $s4, 1	# i++ for the next iteration
+    	shift_col_up_loop:
+    		beq $s2, $s4, shift_col_success		# if i = the ending index, then stop
+    		lh $t1, 0($t0)				# load the value at the current cell
+    		bne $t1, -1, shift_col_up_check_prev	# if the value here is NOT -1, check the prev cell
+    		
+    		# The value is -1, so get the next cell and go to the next iteration
+    		move $a0, $s0		# $a0 = starting address of board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		move $a3, $s3, 		# $a3 = row we want to shift
+    		addi $sp, $sp, -4	# Allocate stack space
+    		sb $s4, 0($sp)		# $a4 (1st argument on stack) = i, the next cell in the row
+    		jal get_cell
+    		addi $sp, $sp, 4	# Restore stack space
+    		move $t0, $v0		# $t0 = next cell address
+    		addi $s4, $s4, 1	# i++
+    		j shift_col_up_loop
+    		
+    		shift_col_up_check_prev:
+    			addi $t2, $s4, -1		# $t2 = index of the prev cell
+    			# while loop to check the previous cells
+    			shift_col_up_check_prev_loop:
+    				bltz $t2, shift_col_up_loop	# if the index of the prev cell is -1, next iteration of shift_row_left
+    				# Get the previous cell
+    				move $a0, $s0		# $a0 = starting address of board
+    				move $a1, $s1		# $a1 = num_rows
+    				move $a2, $s2		# $a2 = num_cols
+    				move $a3, $t2, 		# $a3 = row we want to get the value of
+    				addi $sp, $sp, -16	# Allocate stack space
+    				sw $s3, 0($sp)		# $a4 (1st argument on stack) = i, the prev cell in the row
+    				sw $t0, 4($sp)
+    				sw $t1, 8($sp)
+    				sw $t2, 12($sp)
+    				jal get_cell
+    				lw $t0, 4($sp)
+    				lw $t1, 8($sp)
+    				lw $t2, 12($sp)
+    				addi $sp, $sp, 16	# Restore stack space
+    				move $t3, $v0		# $t3 = previous cell address
+    				lh $t4, 0($t3)		# $t4 = previous cell value
+    				beq $t4, -1, shift_col_check_prev_up_loop_neg_one	# if it's neg 1, we shift
+    				j shift_col_up_loop					# since prev != -1, we just go to the next iter
+    				
+    				shift_col_check_prev_up_loop_neg_one:
+    					sh $t1, 0($t3)		# Prev cell val = current
+    					sh $t4, 0($t0)		# Current cell val = -1
+    					addi $t2, $t2, -1	# tempI--
+    					addi $s5, $s5, 1	# num cells shifted++
+    					j shift_col_up_check_prev_loop
+    
+    
+    
+    shift_col_success:
+    	move $v0, $s5	# $v0 = the number of cells that need to be shifted
+    	j shift_col_return
+    	
+    shift_col_error:
+    	li $v0, -1	# Error: Something went wrong!
+    	j shift_row_return 
+    
+    shift_col_return:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+    	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	lw $s5, 24($sp)
+    	addi $sp, $sp, 28		# Restore stack space
+    	jr $ra
 
+###### check_state ######
+# $a0 = cell[][] board: starting address of the board
+# $a1 = int num_rows: Number of rows in the board
+# $a2 = int num_cols: Number of cols in the board
+# returns: 1 if the game has been won, -1 if the game has been lost,0 otherwise
 check_state:
     jr $ra
 
+###### user_move ######
+# $a0 = cell[][] board: starting address of the board
+# $a1 = int num_rows: Number of rows in the board
+# $a2 = int num_cols: Number of cols in the board
+# $a3 = char dir: 'L', 'R', 'U', 'D' to indicate what direction we want the user to move
+# returns: (0, x) where x is the return value of check_state or (-1, -1) if any of the functions had an error or dir is invalid
 user_move:
-    #Define your code here
-    ############################################
-    # DELETE THIS CODE. Only here to allow main program to run without fully implementing the function
-    li $s0, 0x777
-    li $v0, 0x777
-    li $v1, 0x777
-    ############################################
     jr $ra
     
 ####################
@@ -603,67 +975,69 @@ get_cell:
     add $v0, $t0, $a0	# base_address + (row_size * row) + (2 * col)
     jr $ra		# return the cell
 
-	
-
-
 ##### get_num_empty_row_cells #####
 # $a0 = starting address of board
 # $a1 = row
 # $a2 = num_cols
 # returns the number of non-empty cells in a specified row
 get_num_filled_row_cells:
-    addi $sp, $sp, -24
-    sw $ra, 0($sp)
-    sw $s0, 4($sp)
-    sw $s1, 8($sp)
-    sw $s2, 12($sp)
-    sw $s3, 16($sp)
-    sw $s4, 20($sp)
-    
-    move $s0, $a0	# $s0 = board starting address
-    move $s1, $a1	# $s1 = row to start at
-    move $s2, $a2	# $s2 = num_cols
-    li $s3, 0		# $s3 = num non-empty cols
-    li $s4, 0		# $s4 = i
+    move $t0, $a0	# $t0 = board starting address
+    move $t1, $a1	# $t1 = row to start at
+    move $t2, $a2	# $t2 = num_cols
+    li $t3, 0		# $t3 = num non-empty cols
+    li $t4, 0		# $t4 = i
     
     get_num_non_empty_cells_loop:
-    	beq $s4, $s2, return_num_non_empty_cells
-    	li $t0, 2		# $t0 = 2
-    	move $t1, $s2		# $t1 = num_cols
-    	mul $t1, $t1, $t0	# $t1 = row_size = 2 * (num_cols)
-    	mul $t1, $t1, $s1	# $t1 = row_size * row
-    	mul $t0, $t0, $s4	# $t0 = 2 * col
-    	add $t0, $t0, $t1	# $t0 = (row_size * row) + (2 * col)
-    	add $t2, $t0, $s0	# base_address + (row_size * row) + (2 * col)
-    	lh $t3, 0($t2)		# get the value of the cell
-    	addi $s4, $s4, 1	# i++
-    	beq $t3, -1, get_num_non_empty_cells_loop
-    	addi $s3, $s3, 1	# count++
-    	j get_num_non_empty_cells_loop
+    	beq $t4, $t2, return_num_non_empty_cells
+    	li $t5, 2		# $t5 = 2
+    	move $t6, $s2		# $t6 = num_cols
+    	mul $t6, $t6, $t5	# $t6 = row_size = 2 * (num_cols)
+    	mul $t6, $t6, $t1	# $t6 = row_size * row
+    	mul $t5, $t5, $t4	# $t5 = 2 * col
+    	add $t5, $t5, $t6	# $t5 = (row_size * row) + (2 * col)
+    	add $t7, $t5, $t0	# $t7 = base_address + (row_size * row) + (2 * col)
+    	lh $t8, 0($t7)		# $t8 = value of the cell
+    	addi $t4, $t4, 1	# $t4 = $t4++
+    	beq $t8, -1, get_num_non_empty_cells_loop	# if the value from the cell === -1, loop w/o incrementing count
+    	addi $t3, $t3, 1	# $t3 = count++
+    	j get_num_non_empty_cells_loop	# Loop-Dee-Loop
     	
     return_num_non_empty_cells:
-    	move $v0, $s3	# return the number of non-empty cell
-    	lw $ra, 0($sp)
-    	lw $s0, 4($sp)
-    	lw $s1, 8($sp)
-    	lw $s2, 12($sp)
-    	lw $s3, 16($sp)
-    	lw $s4, 20($sp)
-   	addi $sp, $sp, 24
+    	move $v0, $t3	# $v0 = the number of non-empty cells
     	jr $ra
     
-##### get_num_empty_col_cells #####
+##### get_num_filled_col_cells #####
 # $a0 = starting address of board
 # $a1 = num_rows
 # $a2 = num_cols
 # $a3 = col
-# returns the number of empty cells in a specified col
+# returns the number of non-empty cells in a specified col
 get_num_filled_col_cells:
-    # TODO
-    jr $ra
+    move $t0, $a0	# $t0 = board starting address
+    move $t1, $a1	# $t1 = num_rows
+    move $t2, $a2	# $t2 = column we start at
+    li $t3, 0		# $t3 = num non-empty cols
+    li $t4, 0		# $t4 = i
     
-    
-    
+    get_num_non_empty_cols_loop:
+    	beq $t4, $t2, return_num_non_empty_cols
+    	li $t5, 2		# $t5 = 2
+    	move $t6, $s2		# $t6 = num_cols
+    	mul $t6, $t6, $t5	# $t6 = row_size = 2 * (num_cols)
+    	mul $t6, $t6, $t1	# $t6 = row_size * row
+    	mul $t5, $t5, $t4	# $t5 = 2 * col
+    	add $t5, $t5, $t6	# $t5 = (row_size * row) + (2 * col)
+    	add $t7, $t5, $t0	# $t7 = base_address + (row_size * row) + (2 * col)
+    	lh $t8, 0($t7)		# $t8 = value of the cell
+    	addi $t4, $t4, 1	# $t4 = $t4++
+    	beq $t8, -1, get_num_non_empty_cols_loop	# if the value from the cell === -1, loop w/o incrementing count
+    	addi $t3, $t3, 1	# $t3 = count++
+    	j get_num_non_empty_cols_loop	# Loop-Dee-Loop
+    	
+    return_num_non_empty_cols:
+    	move $v0, $t3	# $v0 = the number of non-empty cells
+    	jr $ra
+
 ########################
 # HELPER FUNCTIONS END #
 ########################
