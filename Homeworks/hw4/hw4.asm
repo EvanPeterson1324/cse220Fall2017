@@ -578,10 +578,10 @@ merge_col:
 # returns: Number of cells shifted, -1 on error
 # Errors: row < 0 or row >= num_cols | num_rows/num_cols < 2 | direction is something other than 1 or 0
 shift_row:
-    lb $t0, 0($sp)
+    lb $t0, 0($sp)		# $t0 = int direction
     
     # Saving $s0 - $s7, $ra
-    addi $sp, $sp, -36		# Allocate stack space
+    addi $sp, $sp, -28		# Allocate stack space
     sw $ra, 0($sp)
     sw $s0, 4($sp)
     sw $s1, 8($sp)
@@ -590,7 +590,7 @@ shift_row:
     sw $s4, 20($sp)
     sw $s5, 24($sp)
     
-    # Moving arguements into saved registers
+    # Init saved registers
     move $s0, $a0	# $s0 = board
     move $s1, $a1	# $s1 = num_rows
     move $s2, $a2	# $s2 = num_cols
@@ -672,6 +672,7 @@ shift_row:
     					j shift_row_right_check_prev_loop
     shift_row_left:
     	li $s4, 0		# $s4 = i, (the index of the current cell we are trying to shift)
+    	
     	# Starting cell = board[row][i], where i = 0
     	move $a0, $s0		# $a0 = starting address of board
     	move $a1, $s1		# $a1 = num_rows
@@ -686,7 +687,7 @@ shift_row:
     	shift_row_left_loop:
     		beq $s2, $s4, shift_row_success		# if i = the ending index, then stop
     		lh $t1, 0($t0)				# load the value at the current cell
-    		bne $t1, -1, shift_row_Left_check_prev	# if the value here is NOT -1, check the prev cell
+    		bne $t1, -1, shift_row_left_check_prev	# if the value here is NOT -1, check the prev cell
     		
     		# The value is -1, so get the next cell and go to the next iteration
     		move $a0, $s0		# $a0 = starting address of board
@@ -702,10 +703,12 @@ shift_row:
     		j shift_row_left_loop
     		
     		shift_row_left_check_prev:
-    			addi $t2, $s4, -1		# $t2 = index of the prev cell
+    			addi $t2, $s4, -1			# $t2 = index of the prev cell
+    			
     			# while loop to check the previous cells
     			shift_row_left_check_prev_loop:
     				bltz $t2, shift_row_left_loop	# if the index of the prev cell is -1, next iteration of shift_row_left
+    				
     				# Get the previous cell
     				move $a0, $s0		# $a0 = starting address of board
     				move $a1, $s1		# $a1 = num_rows
@@ -733,11 +736,11 @@ shift_row:
     					addi $s5, $s5, 1	# num cells shifted++
     					j shift_row_left_check_prev_loop
     shift_row_success:
-    	move $v0, $s5	# $v0 = number of cells we shifted
+    	move $v0, $s5		# $v0 = number of cells we shifted
     	j shift_row_return
     	
     shift_row_error:
-    	li $v0, -1	# Error: Something went wrong!
+    	li $v0, -1		# Error: Something went wrong!
     	j shift_row_return 
     
     shift_row_return:
@@ -748,7 +751,7 @@ shift_row:
     	lw $s3, 16($sp)
     	lw $s4, 20($sp)
     	lw $s5, 24($sp)
-    	addi $sp, $sp, 28		# Restore stack space
+    	addi $sp, $sp, 28	# Restore stack space
     	jr $ra
 
 ###### shift_col ######
@@ -802,6 +805,7 @@ shift_col:
     	addi $sp, $sp, 4	# Restore stack space
     	move $t0, $v0		# $t0 = first cell address
     	addi $s4, $s4, -1	# i-- for the next iteration
+    	
     	shift_col_down_loop:
     		beq $s4, -1, shift_col_success		# if i = -1, then stop
     		lh $t1, 0($t0)				# $t1 = current cell value
@@ -852,6 +856,7 @@ shift_col:
     					j shift_col_down_check_prev_loop
     shift_col_up:
     	li $s4, 0		# $s4 = i, (the index of the current cell we are trying to shift)
+    	
     	# Starting cell = board[row][i], where i = 0
     	move $a0, $s0		# $a0 = starting address of board
     	move $a1, $s1		# $a1 = num_rows
@@ -883,9 +888,11 @@ shift_col:
     		
     		shift_col_up_check_prev:
     			addi $t2, $s4, -1		# $t2 = index of the prev cell
+    			
     			# while loop to check the previous cells
     			shift_col_up_check_prev_loop:
     				bltz $t2, shift_col_up_loop	# if the index of the prev cell is -1, next iteration of shift_row_left
+    				
     				# Get the previous cell
     				move $a0, $s0		# $a0 = starting address of board
     				move $a1, $s1		# $a1 = num_rows
@@ -916,11 +923,11 @@ shift_col:
     
     
     shift_col_success:
-    	move $v0, $s5	# $v0 = the number of cells that need to be shifted
+    	move $v0, $s5			# Success! $v0 = the number of cells that need to be shifted
     	j shift_col_return
     	
     shift_col_error:
-    	li $v0, -1	# Error: Something went wrong!
+    	li $v0, -1			# Error: Something went wrong!
     	j shift_row_return 
     
     shift_col_return:
@@ -933,14 +940,140 @@ shift_col:
     	lw $s5, 24($sp)
     	addi $sp, $sp, 28		# Restore stack space
     	jr $ra
-
+    	
 ###### check_state ######
 # $a0 = cell[][] board: starting address of the board
 # $a1 = int num_rows: Number of rows in the board
 # $a2 = int num_cols: Number of cols in the board
 # returns: 1 if the game has been won, -1 if the game has been lost,0 otherwise
 check_state:
-    jr $ra
+    addi $sp, $sp, -32	# Allocate stack space
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    sw $s6, 28($sp)
+    
+    move $s0, $a0	# $s0 = board
+    move $s1, $a1	# $s1 = num_rows
+    move $s2, $a2	# $s2 = num_cols
+    li $s3, 0		# $s3 = i
+    li $s4, 0		# $s4 = j
+    li $s5, 0		# $s5 = cell address #1
+    li $s6, 0		# $s6 = cell address #2 (right)
+    li $s7, 0		# $s7 = cell address #3 (down)
+    
+    check_state_row_loop:
+    	beq $s1, $s3, check_state_lost		# if we havent returned by the time we are done traversing, we lost the game
+    	check_state_col_loop:
+    		beq $s2, $s4, check_state_col_loop_next
+    		
+    		# Get the cell
+    		move $a0, $s0		# $a0 = board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		move $a3, $s3		# $a3 = row
+    		addi $sp, $sp, -4	# Allocate Stack Space
+    		sh $s4, 0($sp)		# 0($sp) = col
+    		jal get_cell		
+    		move $s5, $v0		# $s5 = address of 1st cell
+    		addi $sp, $sp, 4
+    	
+    		# Get the cell to the right
+    		move $a0, $s0		# $a0 = board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		move $a3, $s3		# $a3 = row
+    		addi $t0, $s4, 1	# j + 1
+    		addi $sp, $sp, -4	# Allocate Stack Space
+    		sh $t0, 0($sp)		# 0($sp) = col
+    		jal get_cell		
+    		move $s6, $v0		# $s5 = address of the cell to the right
+    		addi $sp, $sp, 4
+    		
+    		# Get the cell under the one we are on
+    		move $a0, $s0		# $a0 = board
+    		move $a1, $s1		# $a1 = num_rows
+    		move $a2, $s2		# $a2 = num_cols
+    		addi $a3, $s3, 1	# $a3 = i + 1
+    		addi $sp, $sp, -4	# Allocate Stack Space
+    		sh $t0, 0($sp)		# 0($sp) = col
+    		jal get_cell		
+    		move $s6, $v0		# $s6 = address of the cell to the right
+    		addi $sp, $sp, 4	
+    		
+    		lh $t0, 0($s5)		# the value of the first cell
+    		beq $t0, 2048, check_state_won		# if we find 2048, return 1
+    		beq $t0, -1, check_state_continue	# if we find a -1, return 0
+    		
+    		# now if the values are in bounds, we can compare them
+    		addi $t1, $s3, 1	# i + 1
+    		addi $t2, $s4, 1	# j + 1
+    		
+    		beq $t1, $s1, check_state_right
+    		beq $t2, $s2, check_state_down
+    		
+    		check_state_both:
+    			lh $t3, 0($s6)				# load the value of the cell to the right into $t4 
+    			lh $t4, 0($s7)				# load the value of the cell to the right into $t4
+    			beq $t3, 2048, check_state_won
+    			beq $t4, 2048, check_state_won
+    			beq $t3, -1, check_state_continue
+    			beq $t4, -1, check_state_continue
+    			beq $t0, $t3, check_state_continue
+    			beq $t0, $t4, check_state_continue
+    			j check_state_next_col
+    			
+    		check_state_right:
+    			beq $t2, $s2, check_state_lost		
+    			lh $t3, 0($s6)				# load the value of the cell to the right into $t4
+    			beq $t3, 2048, check_state_won
+    			beq $t3, -1, check_state_continue
+    			beq $t0, $t3, check_state_continue	# the cells match so keep playing
+    			j check_state_next_col			# go to the next column iteration
+				    						
+    		check_state_down:
+    			beq $t1, $s1, check_state_lost		
+    			lh $t3, 0($s7)				# load the value of the cell to the right into $t4
+    			beq $t3, 2048, check_state_won
+    			beq $t3, -1, check_state_continue
+    			beq $t0, $t3, check_state_continue	# the cells match so keep playing
+    			j check_state_next_col			# go to the next column iteration
+    		
+    		check_state_next_col:
+    			addi $s4, $s4, 1	# j++
+    			j check_state_col_loop
+    			
+    		check_state_col_loop_next:
+    			addi $s3, $s3, 1	# i++
+    			li $s4, 0		# j = 0;
+    			j check_state_row_loop	
+    			
+    check_state_won:
+    	li $v0, 1	# Game has been won
+    	j return_check_state
+    	
+    check_state_lost:
+    	li $v0, -1	# Game has been lost
+    	j return_check_state
+    	
+    check_state_continue:
+    	li $v0, 0	# Game still going on
+    	j return_check_state
+    	
+    return_check_state:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+    	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	lw $s5, 24($sp)
+    	addi $sp, $sp, 28	# Allocate stack space
+    	jr $ra
 
 ###### user_move ######
 # $a0 = cell[][] board: starting address of the board
@@ -949,7 +1082,152 @@ check_state:
 # $a3 = char dir: 'L', 'R', 'U', 'D' to indicate what direction we want the user to move
 # returns: (0, x) where x is the return value of check_state or (-1, -1) if any of the functions had an error or dir is invalid
 user_move:
-    jr $ra
+    addi $sp, $sp, -36	# Allocate stack space
+    sw $ra, 0($sp)
+    sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    sw $s6, 28($sp)
+    sw $s7, 32($sp)
+    
+    # Init $s0- $s7
+    move $s0, $a0	# $s0 = board	
+    move $s1, $a1	# $s1 = num_rows
+    move $s2, $a2	# $s2 = num_cols
+    move $s3, $a3	# $s3 = char direction (L, R, U, D)
+    li $s4, 0		# $s4 = ???
+    li $s5, 0		# $s5 = ???
+    li $s6, 0		# $s6 = ???
+    li $s7, 0		# $s7 = ???
+    
+    beq $s3, 'L', user_move_left
+    beq $s3, 'R', user_move_right
+    beq $s3, 'D', user_move_down
+    beq $s3, 'U', user_move_up
+    j user_move_error            # if we get here, that means the user didnt press a valid key
+    
+    
+    user_move_left:
+    	li $s4, 0			 # $s4 = direction for left
+    	li $s5, 0			 # $s5 = i
+    		user_move_left_loop:
+    			beq $s1, $s5, user_move_success  # for each row..
+    			# shift_row_left
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $0, 0($sp)
+    			jal shift_row
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# merge_row_left
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $0, 0($sp)
+    			jal merge_row
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# shift_row_left
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $0, 0($sp)
+    			jal merge_row
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    			addi $s5, $s5, 1			# next row!
+    			j user_move_left_loop			# loop-dee-loop!
+    user_move_right:
+    	li $s4, 1		# $s4 = direction for right
+    	li $s5, 0			 # $s5 = i
+    		user_move_right_loop:
+    			beq $s1, $s5, user_move_success  # for each row..
+    			# shift_row_right
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $s4, 0($sp)
+    			jal shift_row
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# merge_row_right
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $s4, 0($sp)
+    			jal merge_row
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# shift_row_left
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $s4, 0($sp)
+    			jal merge_row
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    			addi $s5, $s5, 1			# next row!
+    			j user_move_right_loop			# loop-dee-loop!
+    
+    user_move_down:
+    	li $s4, 0		# $s4 = direction for down
+    	# for each col...
+    		# shift_col_down
+    		# merge_col_down
+    		# shift_col_down
+    	j user_move_success
+    
+    user_move_up:
+    	li $s4, 1		# $s4 = direction for up
+    	# for each col...
+    		# shift_col_up
+    		# merge_col_up
+    		# shift_col_up
+    	j user_move_success
+    
+    user_move_error:
+    	li $v0, -1		# Error!
+    	li $v1, -1		# Error!
+    	j user_move_return	# Return
+    
+    user_move_success:
+    	# check the game state here!
+    	li $v0, 0
+    	li $v1, 1		# TODO: RETURNS THE RETURN VALUE OF CHECK_STATE  <-------------
+    
+    
+    user_move_return:
+    	lw $ra, 0($sp)
+    	lw $s0, 4($sp)
+    	lw $s1, 8($sp)
+    	lw $s2, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s4, 20($sp)
+    	lw $s5, 24($sp)
+    	lw $s6, 28($sp)
+    	lw $s7, 32($sp)
+    	addi $sp, $sp, -36	# Allocate stack space
+    	jr $ra
     
 ####################
 # HELPER FUNCTIONS #
@@ -986,7 +1264,7 @@ get_num_filled_row_cells:
     move $t2, $a2	# $t2 = num_cols
     li $t3, 0		# $t3 = num non-empty cols
     li $t4, 0		# $t4 = i
-    
+
     get_num_non_empty_cells_loop:
     	beq $t4, $t2, return_num_non_empty_cells
     	li $t5, 2		# $t5 = 2
