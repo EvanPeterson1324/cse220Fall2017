@@ -26,24 +26,20 @@ clear_board:
     	sw $s4, 20($sp)
 	
 	# Error checking
-	blt $a1, 2, clear_board_error	# ERROR if rows < 2
-	blt $a2, 2, clear_board_error	# ERROR if cols < 2
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
+	blt $a1, 2, clear_board_error	# ERROR if num_rows < 2
+	blt $a2, 2, clear_board_error	# ERROR if num_cols < 2
 	
 	# init registers for calculations
-	move $s0, $a0		# $t0 = Base address of board
-	move $s1, $a1		# $t1 = rows
-	move $s2, $a2		# $t2 = cols
-	li $s3, 0		# $t3 = i (current row)
-	li $s4, 0		# $t4 = j (current col)
-
+	move $s0, $a0		# $s0 = Base address of board
+	move $s1, $a1		# $s1 = rows
+	move $s2, $a2		# $s2 = cols
+	li $s3, 0		# $s3 = i (current row)
+	li $s4, 0		# $s4 = j (current col)
 	
-	# obj_arr[i][j] = base_address + (row_size * i) + (size_of(obj) * j)
 	clearBoardLoopRows:
-		beq $s1, $s3, clear_board_success		# End of matrix, return 0 or success
+		beq $s1, $s3, clear_board_success		# Return success!
 		clearBoardLoopCols:
-			beq $s2, $s4, clearBoardNextRow		# End of cols, next row
+			beq $s2, $s4, clearBoardNextRow		# next row
 			# Load the registers for the get cell function
 			move $a0, $s0		# $a0 = starting address of board
 			move $a1, $s1		# $a1 = num_rows
@@ -54,7 +50,8 @@ clear_board:
 			jal get_cell		# FUNCTION CALL TO GET_CELL
 			addi $sp, $sp, 4	# Restore stack space
 			li $t0, -1		# $t0 = temp for -1
-			sh $t0, 0($v0)		# STORE THE -1 IN THIS CELL!
+			move $t1, $v0		# $t1 = address of current cell
+			sh $t0, 0($t1)		# STORE THE -1 IN THIS CELL!
 			addi $s4, $s4, 1	# j++
 			j clearBoardLoopCols	
 		clearBoardNextRow:
@@ -68,7 +65,7 @@ clear_board:
 	
 	clear_board_success:
 		li $v0, 0					# We were successful in clearing the board!
-		
+		j clear_board_return
 	clear_board_return:
 		lw $ra, 0($sp)
     		lw $s0, 4($sp)
@@ -93,30 +90,49 @@ place:
     lh $t0, 0($sp)		# $t0 = int col: The column number of the cell we want to set.	
     lh $t1, 4($sp)		# $t1 = int val: the value to be placed in the cell.
    
-    addi $sp, $sp, -8
+    addi $sp, $sp, -28
     sw $ra, 0($sp)
     sw $s0, 4($sp)
+    sw $s1, 8($sp)
+    sw $s2, 12($sp)
+    sw $s3, 16($sp)
+    sw $s4, 20($sp)
+    sw $s5, 24($sp)
+    
+    # Init $s0 - $s5
+    move $s0, $a0	# $s0 = board
+    move $s1, $a1	# $s1 =	num_rows
+    move $s2, $a2	# $s2 =	num_cols
+    move $s3, $a3	# $s3 =	row
+    move $s4, $t0	# $s4 =	col
+    move $s5, $t1	# $s5 =	value
     
     # Error checking
-    blt $a1, 2, place_error	# ERROR: if n_rows < 2
-    blt $a2, 2, place_error	# ERROR: if n_cols < 2
+    blt $s1, 2, place_error	# ERROR: if n_rows < 2
+    blt $s2, 2, place_error	# ERROR: if n_cols < 2
     
     # Error Checking
-    bltz $a3, place_error	# ERROR: if row < 0
-    bltz $t0, place_error	# ERROR: if col < 0
-    bge $a3, $a1, place_error	# ERROR: if row >= n_rows
-    bge $t0, $a2, place_error	# ERROR: if col >= n_cols
-    beq $t1, -1, place_success	# SUCCESS: if val == -1
-    blez $t1, place_error	# ERROR: if val <= 0
-    addi $t2, $t1, -1		# CALC:  $t2 = val - 1
-    and $t2, $t2, $t1		# CALC: $t2 = val && val - 1... Should be zero if its a power of two
+    bltz $s3, place_error	# ERROR: if row < 0
+    bltz $s4, place_error	# ERROR: if col < 0
+    bge $s3, $s1, place_error	# ERROR: if row >= n_rows
+    bge $s4, $s2, place_error	# ERROR: if col >= n_cols
+    beq $s5, -1, place_success	# SUCCESS: if val == -1
+    blez $s5, place_error	# ERROR: if val <= 0
+    addi $t2, $s5, -1		# CALC:  $t2 = val - 1
+    and $t2, $t2, $s5		# CALC: $t2 = val && val - 1... Should be zero if its a power of two
     bnez $t2, place_error	# ERROR: Result is not zero so its not a power of two
 	
     place_success:
-    	move $s0, $t1		# keep the value we want to store
+	move $a0, $s0		# board
+	move $a1, $s1		# num_rows
+	move $a2, $s2		# num_cols
+	move $a3, $s3		# row
+	addi $sp, $sp, -4
+	sw $s4, 0($sp)		# col
     	jal get_cell
+    	addi $sp, $sp, 4	# Restore stack space
     	move $t0, $v0
-    	sh $s0, 0($t0)		# store the value ---> cell[row][col] = val
+    	sh $s5, 0($t0)		# store the value ---> cell[row][col] = val
     	li $v0, 0		# $v0 = 0, denotes success!
     	j place_return
     
@@ -127,7 +143,12 @@ place:
     place_return:
 	lw $ra, 0($sp)
 	lw $s0, 4($sp)
-	addi $sp, $sp, 8
+	lw $s1, 8($sp)
+	lw $s2, 12($sp)
+	lw $s3, 16($sp)
+	lw $s4, 20($sp)
+	lw $s5, 24($sp)
+	addi $sp, $sp, 28
     	jr $ra
 
 ###### Start Game ######
@@ -144,9 +165,9 @@ start_game:
 
     blt $a1, 2, start_game_error	# ERROR: num_rows < 2
     blt $a2, 2, start_game_error	# ERROR: num_cols < 2
-    lh $t0, 0($sp)			# $t0 = c1
-    lh $t1, 4($sp)			# $t1 = r2
-    lh $t2, 8($sp)			# $t2 = c2
+    lw $t0, 0($sp)			# $t0 = c1
+    lw $t1, 4($sp)			# $t1 = r2
+    lw $t2, 8($sp)			# $t2 = c2
     
     addi $sp, $sp, -32
     sw $ra, 0($sp)
@@ -166,7 +187,7 @@ start_game:
     move $s4, $t0			# $s4 = c1
     move $s5, $t1			# $s5 = r2
     move $s6, $t2			# $s6 = c2
-
+    
     bltz $s3, start_game_error		# ERROR: r1 < 0
     bltz $s4, start_game_error		# ERROR: c1 < 0
     bltz $s5, start_game_error		# ERROR: r2 < 0
@@ -182,7 +203,7 @@ start_game:
     move $a1, $s1	# $a1 = num_rows
     move $a2, $s2	# $a2 = num_cols
     jal clear_board
-    beq $v0, -1, start_game_error
+    beq $v0, -1, start_game_error		# ERROR: issue with clear_board
     
     # Place starting value ---> board[r1][c1] = 2
     li $t0, 2		# starting value
@@ -191,25 +212,28 @@ start_game:
     move $a2, $s2	# $a2 = num_cols
     move $a3, $s3	# $a3 = r1
     addi $sp, $sp, -8
-    sh $t0, 4($sp)	# 4($sp) = starting value #1
-    sh $s4, 0($sp)	# 0($sp) = c1
+    sw $t0, 4($sp)	# 4($sp) = starting value #1
+    sw $s4, 0($sp)	# 0($sp) = c1
     jal place
-    beq $v0, -1, start_game_error
+    addi $sp, $sp, 8	# put stack pointer back to where it belongs
+    beq $v0, -1, start_game_error		# ERROR: issue with place
+    
     # Place starting value ---> board[r2][c2] = 2
     li $t0, 2		# starting value
     move $a0, $s0	# $a0 = board 
     move $a1, $s1	# $a1 = num_rows
     move $a2, $s2	# $a2 = num_cols
     move $a3, $s5	# $a3 = r2
-    sh $t0, 4($sp)	# 4($sp) = starting value #1
-    sh $s6, 0($sp)	# 0($sp) = c2
+    addi $sp, $sp, -8
+    sw $t0, 4($sp)	# 4($sp) = starting value #1
+    sw $s6, 0($sp)	# 0($sp) = c2
     jal place
     beq $v0, -1, start_game_error
     addi $sp, $sp, 8	# put stack pointer back to where it belongs
     j start_game_success
     
     start_game_success:
-    	li $v0, 1		# SUCCESS: return 0
+    	li $v0, 0		# SUCCESS: return 0
     	j start_game_return
     	
     start_game_error:
@@ -267,22 +291,10 @@ merge_row:
     move $s3, $a3	# $s3 = row to merge
     move  $s4, $t0	# $s4 = direction to merge
     li $s5, 0		# counter for the column number
-    beqz $s4, merge_row_right		# if direction == 1, merge row right
+    beq $s4, 1, merge_row_right		# if direction == 1, merge row right
     
     merge_row_left:
-    	# board[row][num_cols - 1] = base_address + (num_cols * 2 * row) + (2 * (num_cols - 1))
-    	# Here we are getting the address of the first cell
-    	move $a0, $s0
-    	move $a1, $s1
-    	move $a2, $s2
-    	move $a3, $s3
-    	addi $sp, $sp, -4
-    	addi $t0, $s2, -1
-    	sb $t0, 0($sp)		# Get the last cell in the row
-    	jal get_cell
-    	addi $sp, $sp, 4
-    	move $s7, $v0		# $s7 = the last cell in row
-    	
+    	addi $s7, $s2, -1	# index to stop at
     	move $a0, $s0
     	move $a1, $s1
     	move $a2, $s2
@@ -294,7 +306,7 @@ merge_row:
     	move $s6, $v0		# $s6 = the FIRST cell in the window
     	addi $s5, $s5, 1	# counter +1 so we can get the next cell
     		merge_left_loop:
-    		    beq $s7, $s6, merge_row_success
+    		    beq $s7, $s5, merge_row_success
     		    move $a0, $s0
     		    move $a1, $s1
     		    move $a2, $s2
@@ -325,23 +337,14 @@ merge_row:
     			j merge_left_loop
     	
     merge_row_right:
-    	# board[row][0] = get_cell(board, num_rows, num_cols, row, 0)
-    	move $a0, $s0
-    	move $a1, $s1
-    	move $a2, $s2
-    	move $a3, $s3		# load in row
-    	addi $sp, $sp, -4
-    	sb $s5, 0($sp)		# store 0 for the column bc we only want the starting address of the start of the row
-    	jal get_cell
-    	addi $sp, $sp, 4	# restore stack space
-    	move $s7, $v0		# $s6 = the FIRST cell in the window
+    	
     	
     	addi $s5, $s2, -1	# $s5 = num_col - 1 
     	# Here we are getting the address of the last cell
     	move $a0, $s0
     	move $a1, $s1
     	move $a2, $s2
-    	addi $a3, $s2, -1	# load in num_col - 1 bc we want the last cell in the row
+    	addi $a3, $s5	# load in num_col - 1 bc we want the last cell in the row
     	addi $sp, $sp, -4
     	sb $s5, 0($sp)		# store zero for the column bc we only want the ending address of the row
     	jal get_cell
@@ -349,7 +352,7 @@ merge_row:
     	move $s6, $v0		# $s6 = the LAST cell in the window
     	addi $s5, $s5, -1	# get the index of the 2nd cell
     		merge_right_loop:
-    		    beq $s7, $s6, merge_row_success
+    		    beqz $s5, merge_row_success
     		    move $a0, $s0
     		    move $a1, $s1
     		    move $a2, $s2
@@ -371,10 +374,10 @@ merge_row:
     		    add $t1, $t1, $t2				# sum of the values
     		    sh $t1, 0($s6)
     		    li $t3, -1
-		    sh $t3, 0($t0)	# store -1 into the 2nnd cell
+		    sh $t3, 0($t0)	# store -1 into the 2nd cell
     		    merge_right_next_iter:
     			addi $s5, $s5, -1	# next column
-    			move $s7, $t0	# keep the address of the 2nd cell for the next iteration
+    			move $s6, $t0	# keep the address of the 2nd cell for the next iteration
     			j merge_right_loop
     	
     merge_row_error:
@@ -1144,7 +1147,7 @@ user_move:
     			move $a3, $s3
     			addi $sp, $sp, -4
     			sw $0, 0($sp)
-    			jal merge_row
+    			jal shift_row
     			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
     			addi $sp, $sp, 4
     			addi $s5, $s5, 1			# next row!
@@ -1183,7 +1186,7 @@ user_move:
     			move $a3, $s3
     			addi $sp, $sp, -4
     			sw $s4, 0($sp)
-    			jal merge_row
+    			jal shift_row
     			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
     			addi $sp, $sp, 4
     			addi $s5, $s5, 1			# next row!
@@ -1191,19 +1194,83 @@ user_move:
     
     user_move_down:
     	li $s4, 0		# $s4 = direction for down
-    	# for each col...
-    		# shift_col_down
-    		# merge_col_down
-    		# shift_col_down
-    	j user_move_success
+    	li $s5, 0		# $s5 = i
+    		user_move_down_loop:
+    			beq $s1, $s5, user_move_success  # for each row..
+    			# shift_col_down
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $0, 0($sp)
+    			jal shift_col
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# merge_col_down
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $0, 0($sp)
+    			jal merge_col
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# shift_col_left
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $0, 0($sp)
+    			jal shift_col
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    			addi $s5, $s5, 1			# next col!
+    			j user_move_down_loop			# loop-dee-loop!
     
     user_move_up:
     	li $s4, 1		# $s4 = direction for up
-    	# for each col...
-    		# shift_col_up
-    		# merge_col_up
-    		# shift_col_up
-    	j user_move_success
+    	li $s5, 0		# $s5 = i
+    		user_move_up_loop:
+    			beq $s1, $s5, user_move_success  # for each col..
+    			# shift_col_up
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $s4, 0($sp)
+    			jal shift_col
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# merge_col_up
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $s4, 0($sp)
+    			jal merge_col
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    		
+    			# shift_col_up
+    			move $a0, $s0
+    			move $a1, $s1
+    			move $a2, $s2
+    			move $a3, $s3
+    			addi $sp, $sp, -4
+    			sw $s4, 0($sp)
+    			jal shift_col
+    			beq $v0, -1, user_move_error		# ERROR: Something went wrong in one of the functions!
+    			addi $sp, $sp, 4
+    			addi $s5, $s5, 1			# next col!
+    			j user_move_down_loop			# loop-dee-loop!
     
     user_move_error:
     	li $v0, -1		# Error!
@@ -1212,10 +1279,14 @@ user_move:
     
     user_move_success:
     	# check the game state here!
-    	li $v0, 0
-    	li $v1, 1		# TODO: RETURNS THE RETURN VALUE OF CHECK_STATE  <-------------
-    
-    
+    	move $a0, $s0
+    	move $a1, $s1
+    	move $a2, $s2
+    	jal check_state
+    	move $v1, $v0		# $v1 = return value of check_state
+    	li $v0, 0		# $v0 = 0
+    	j user_move_return	# return!
+		
     user_move_return:
     	lw $ra, 0($sp)
     	lw $s0, 4($sp)

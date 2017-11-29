@@ -26,7 +26,7 @@ col_loop:
 	
 	# addr = base_addr + i * num_columns * elem_size_in_bytes + j * elem_size_in_bytes
 	# addr = base_addr + elem_size_in_bytes * (i * num_columns + j)
-
+	
 	mul $t5, $t3, $t2 # i * num_columns
 	add $t5, $t5, $t4 # i * num_columns + j
 	sll $t5, $t5, 2   # 4*(i * num_columns + j)  Mult by 4 b/c we have an array of 4-byte words
