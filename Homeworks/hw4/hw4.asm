@@ -40,6 +40,7 @@ clear_board:
 		beq $s1, $s3, clear_board_success		# Return success!
 		clearBoardLoopCols:
 			beq $s2, $s4, clearBoardNextRow		# next row
+			
 			# Load the registers for the get cell function
 			move $a0, $s0		# $a0 = starting address of board
 			move $a1, $s1		# $a1 = num_rows
@@ -66,6 +67,7 @@ clear_board:
 	clear_board_success:
 		li $v0, 0					# We were successful in clearing the board!
 		j clear_board_return
+		
 	clear_board_return:
 		lw $ra, 0($sp)
     		lw $s0, 4($sp)
@@ -337,28 +339,26 @@ merge_row:
     			j merge_left_loop
     	
     merge_row_right:
-    	
-    	
     	addi $s5, $s2, -1	# $s5 = num_col - 1 
     	# Here we are getting the address of the last cell
     	move $a0, $s0
     	move $a1, $s1
     	move $a2, $s2
-    	addi $a3, $s5	# load in num_col - 1 bc we want the last cell in the row
+    	move $a3, $s3	# load in num_col - 1 bc we want the last cell in the row
     	addi $sp, $sp, -4
-    	sb $s5, 0($sp)		# store zero for the column bc we only want the ending address of the row
+    	sh $s5, 0($sp)		# store num_col - 1
     	jal get_cell
     	addi $sp, $sp, 4	# restore stack space
     	move $s6, $v0		# $s6 = the LAST cell in the window
     	addi $s5, $s5, -1	# get the index of the 2nd cell
     		merge_right_loop:
-    		    beqz $s5, merge_row_success
+    		    bltz $s5, merge_row_success
     		    move $a0, $s0
     		    move $a1, $s1
     		    move $a2, $s2
     		    move $a3, $s3
     		    addi $sp, $sp, -4 
-    		    sb $s5, 0($sp)		# Get the cell to the left of the first one
+    		    sw $s5, 0($sp)		# Get the cell to the left of the first one
     		    jal get_cell
     		    addi $sp, $sp, 4		# restore stack space
     		    move $t0, $v0		# $t0 = the 2nd cell in the window

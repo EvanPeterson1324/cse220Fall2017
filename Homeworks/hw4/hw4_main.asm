@@ -53,16 +53,15 @@ main:
     	
     	
     	testMergeRow:
+    		li $t0, 1
     		la $a0, matrix 		# starting address of board[][]
 		lw $a1, rows    	# number of rows in board
 		lw $a2, columns 	# number of columns in board
 		li $a3, 0		# row = 0
-		addi $sp, $sp, 4
-		sh $0, 0($sp)
-		jal merge_row
-	
-	
-	
+		addi $sp, $sp, 4	
+		sh $t0, 0($sp)
+		jal merge_row		
+		
 	exit:
     		# Terminate the program
     		li $v0, 10
