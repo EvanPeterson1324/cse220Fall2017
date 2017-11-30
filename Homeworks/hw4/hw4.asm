@@ -438,39 +438,29 @@ merge_col:
     move $s2, $a2	# $s2 = num_cols
     move $s3, $a3	# $s3 = col to merge
     move  $s4, $t0	# $s4 = direction to merge
-    li $s5, 0		# counter for the column number
-    beqz $s4, merge_col_up		# if direction == 1, merge row up
+    li $s5, 0		# counter for the row number
+    beq $s4, 1, merge_col_up		# if direction == 1, merge row up
     
     merge_col_down:
-    	# Here we are getting the address of the last cell
-    	move $a0, $s0
-    	move $a1, $s1
-    	move $a2, $s2
-    	addi $a3, $s1, -1	# num_rows - 1: to get the last row/col cell in this col
-    	addi $sp, $sp, -4	# Create stack space
-    	sh $s3, 0($sp)		# Get the col we want to merge
-    	jal get_cell
-    	addi $sp, $sp, 4	# Restore stack space
-    	move $s7, $v0		# $s7 = the last cell in col
-    	
+    	move $s5, $s1		# $s5 = num_rows
     	move $a0, $s0		
     	move $a1, $s1		
     	move $a2, $s2
-    	move $a3, $s5		# load in first row
+    	addi $a3, $s5, -1		# # $a3 = num_rows -1
     	addi $sp, $sp, -4
     	sb $s3, 0($sp)		# # get the specified col
     	jal get_cell
     	addi $sp, $sp, 4	# restore stack space
     	move $s6, $v0		# $s6 = the FIRST cell in the window
-    	addi $s5, $s5, 1	# counter +1 so we can get the next cell
+    	addi $s5, $s5, -1	# counter -1 so we can get the next cell
     		merge_down_loop:
-    		    beq $s7, $s6, merge_col_success
+    		    bltz $s5, merge_col_success
     		    move $a0, $s0
     		    move $a1, $s1
     		    move $a2, $s2
-    		    move $a3, $s3
+    		    move $a3, $s5		# row we are on
     		    addi $sp, $sp, -4 		# Allocate stack space
-    		    sb $s5, 0($sp)		# Get the cell under the first one
+    		    sw $s3, 0($sp)		# Get the cell above the first one
     		    jal get_cell
     		    addi $sp, $sp, 4		# restore stack space
     		    move $t0, $v0		# $t0 = the 2nd cell in the window
@@ -491,35 +481,25 @@ merge_col:
     		    
     		    merge_down_next_iter:
     		    	move $s6, $t0		# keep the address of the 2nd cell for the next iteration
-    			addi $s5, $s5, 1	# next row
+    			addi $s5, $s5, -1	# next row
     			j merge_down_loop
     	
     merge_col_up:
-    	# Get the first cell
-    	move $a0, $s0		# $a0 = starting address of board
-    	move $a1, $s1		# $a1 = num_rows
-    	move $a2, $s2		# $a2 = num_cols
-    	move $a3, $0, 		# $a3 = 0 (first row)
-    	addi $sp, $sp, -4	# Allocate stack space
-    	sb $s3, 0($sp)		# $a4 (1st argument on stack) = col we want
-    	jal get_cell
-    	addi $sp, $sp, 4	# Restore stack space
-    	move $s7, $v0		# $s7 = the FIRST cell of the specified column
-    	
     	# Here we are getting the address of the last cell
-    	addi $s5, $s1, -1	# $s5 = num_row - 1
+    	li $s5, 0		# $s0 = row to start at
     	move $a0, $s0		# $a0 = starting address of the board
     	move $a1, $s1		# $a1 = num_rows
     	move $a2, $s2		# $a2 = num_cols
-    	move $a3, $s5		# $a3 = (num_row - 1)
+    	move $a3, $s5		# $a3 = starting row
     	addi $sp, $sp, -4	# Allocate stack space
-    	sb $s5, 0($sp)		# $a4 (1st argument on the stack) = the col we want
+    	sb $s3, 0($sp)		# $a4 (1st argument on the stack) = the col we want
     	jal get_cell
     	addi $sp, $sp, 4	# restore stack space
-    	move $s6, $v0		# $s6 = LAST cell in the col
-    	addi $s5, $s5, -1	# $s5 = index of the 2nd cell
+    	addi $s5, $s5, 1	# $s5 = index of the 2nd cell
+    	move $s6, $v0		# $s6 = First cell in the col
+    	addi $s7, $s1, -1	# $s7 = num_row - 1
     		merge_up_loop:
-    		    beq $s7, $s6, merge_col_success
+    		    beq $s7, $s5, merge_col_success
     		    move $a0, $s0		# $a0 = starting address of board
     		    move $a1, $s1		# $a1 = num_rows
     		    move $a2, $s2		# $a2 = num_cols
@@ -544,8 +524,8 @@ merge_col:
 		    sh $t3, 0($t0)				# store -1 into cell #2
     		    
     		    merge_up_next_iter:
-    			addi $s5, $s5, -1	# $s5 = num_row-- (to get the next cell)
-    			move $s7, $t0		# $s7: 1st cell = previous 2nd cell
+    			addi $s5, $s5, 1	# $s5 = num_row-- (to get the next cell)
+    			move $s6, $t0		# $s7: 1st cell = previous 2nd cell
     			j merge_up_loop		# LOOP-DEE-LOOP
     	
     merge_col_error:
@@ -600,8 +580,6 @@ shift_row:
     move $s3, $a3	# $s3 = row
     move $s4, $t0	# $s4 = direction
     li $s5, 0		# $s5 = count of how many cells we shifted
-    li $s6, 0		# $s6 = ???
-    li $s7, 0		# $s7 = ???
     
     # Error Checking
     blt $s1, 2, shift_row_error		# ERROR: num_rows < 2
@@ -613,7 +591,7 @@ shift_row:
     beqz $s4, shift_row_left		# AFTER THIS CHECK, $s4 IS FREE TO USE!      <-------- LOOK!
     
     shift_row_right:
-    	addi $s4, $a2, -2	# $s4 = i, (num_cols - 2)
+    	addi $s4, $s2, -2	# $s4 = i, (num_cols - 2)
     	# Starting cell = board[row][i], where i = (num_cols - 2)
     	move $a0, $s0		# $a0 = starting address of board
     	move $a1, $s1		# $a1 = num_rows
@@ -674,25 +652,25 @@ shift_row:
     					addi $s5, $s5, 1	# num cells shifted++
     					j shift_row_right_check_prev_loop
     shift_row_left:
-    	li $s4, 0		# $s4 = i, (the index of the current cell we are trying to shift)
+    	li $s4, 1		# $s4 = i, (the index of the current col-cell we are trying to shift)
     	
     	# Starting cell = board[row][i], where i = 0
     	move $a0, $s0		# $a0 = starting address of board
     	move $a1, $s1		# $a1 = num_rows
     	move $a2, $s2		# $a2 = num_cols
-    	move $a3, $s3, 		# $a3 = row we want to shift
+    	move $a3, $s3 		# $a3 = row we want to shift
     	addi $sp, $sp, -4	# Allocate stack space
-    	sb $s4, 0($sp)		# $a4 (1st argument on stack) = 0, the first cell in the row
+    	sb $s4, 0($sp)		# $a4 (1st argument on stack) = 1, the first cell in the row
     	jal get_cell
     	addi $sp, $sp, 4	# Restore stack space
     	move $t0, $v0		# $t0 = first cell address
-    	addi $s4, $s4, 1	# i++ for the next iteration
     	shift_row_left_loop:
-    		beq $s2, $s4, shift_row_success		# if i = the ending index, then stop
+    		beq $s2, $s4, shift_row_success		# if i = num_col, then stop
     		lh $t1, 0($t0)				# load the value at the current cell
     		bne $t1, -1, shift_row_left_check_prev	# if the value here is NOT -1, check the prev cell
     		
     		# The value is -1, so get the next cell and go to the next iteration
+    		addi $s4, $s4, 1	# i++
     		move $a0, $s0		# $a0 = starting address of board
     		move $a1, $s1		# $a1 = num_rows
     		move $a2, $s2		# $a2 = num_cols
@@ -702,16 +680,14 @@ shift_row:
     		jal get_cell
     		addi $sp, $sp, 4	# Restore stack space
     		move $t0, $v0		# $t0 = next cell address
-    		addi $s4, $s4, 1	# i++
     		j shift_row_left_loop
     		
     		shift_row_left_check_prev:
     			addi $t2, $s4, -1			# $t2 = index of the prev cell
-    			
+    							
     			# while loop to check the previous cells
     			shift_row_left_check_prev_loop:
-    				bltz $t2, shift_row_left_loop	# if the index of the prev cell is -1, next iteration of shift_row_left
-    				
+    				addi $t9, $t2, 1		# $t9 = prev
     				# Get the previous cell
     				move $a0, $s0		# $a0 = starting address of board
     				move $a1, $s1		# $a1 = num_rows
@@ -730,11 +706,29 @@ shift_row:
     				move $t3, $v0		# $t3 = previous cell address
     				lh $t4, 0($t3)		# $t4 = previous cell value
     				beq $t4, -1, shift_row_check_prev_left_loop_neg_one	# if it's neg 1, we shift
-    				j shift_row_left_loop					# since prev != -1, we just go to the next iter
+    				beqz $t2, shift_row_left_loop
+    				j shift_row_left_check_prev_loop					# since prev != -1, we just go to the next iter
     				
     				shift_row_check_prev_left_loop_neg_one:
+    					# get cell
+    					move $a0, $s0		# $a0 = starting address of board
+    					move $a1, $s1		# $a1 = num_rows
+    					move $a2, $s2		# $a2 = num_cols
+    					move $a3, $s3, 		# $a3 = row we want to get the value of
+    					addi $sp, $sp, -16	# Allocate stack space
+    					sw $t9, 0($sp)		# $a4 (1st argument on stack) = i, the prev cell in the row
+    					sw $t0, 4($sp)
+    					sw $t1, 8($sp)
+    					sw $t2, 12($sp)
+    					jal get_cell
+    					lw $t0, 4($sp)
+    					lw $t1, 8($sp)
+    					lw $t2, 12($sp)
+    					addi $sp, $sp, 16	# Restore stack space
+    					move $t9, $v0		# $t3 = previous cell address
+    					li $t4, -1
     					sh $t1, 0($t3)		# Prev cell val = current
-    					sh $t4, 0($t0)		# Current cell val = -1
+    					sh $t4, 0($t9)		# Current cell val = -1
     					addi $t2, $t2, -1	# tempI--
     					addi $s5, $s5, 1	# num cells shifted++
     					j shift_row_left_check_prev_loop

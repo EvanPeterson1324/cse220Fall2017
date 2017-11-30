@@ -42,7 +42,7 @@ main:
     		li $a3, 0		# r1
     		li $t0, 0		# c1
     		li $t1, 0		# r2
-    		li $t2, 1		# c2
+    		li $t2, 3		# c2
     	
     		addi $sp, $sp, -12
     		sh $t0, 0($sp)		
@@ -50,17 +50,46 @@ main:
     		sh $t2, 8($sp)
     		jal start_game
     		addi $sp, $sp, 12
-    	
-    	
-    	testMergeRow:
-    		li $t0, 1
+    		
+    	#testMergeRow:
+    		#li $t0, 1
+    		#la $a0, matrix 		# starting address of board[][]
+		#lw $a1, rows    	# number of rows in board
+		#lw $a2, columns 	# number of columns in board
+		#li $a3, 0		# row = 0
+		#addi $sp, $sp, 4	
+		#sh $t0, 0($sp)
+		#jal merge_row
+		
+	#testMergeCol:
+    		#li $t0, 1		
+    		#la $a0, matrix 		# starting address of board[][]
+		#lw $a1, rows    	# number of rows in board
+		#lw $a2, columns 	# number of columns in board
+		#li $a3, 0		# col = 0
+		#addi $sp, $sp, 4	
+		#sh $t0, 0($sp)
+		#jal merge_col
+		
+	testShiftRow:
+    		li $t0, 0
     		la $a0, matrix 		# starting address of board[][]
 		lw $a1, rows    	# number of rows in board
 		lw $a2, columns 	# number of columns in board
 		li $a3, 0		# row = 0
 		addi $sp, $sp, 4	
 		sh $t0, 0($sp)
-		jal merge_row		
+		jal shift_row		
+		j exit
+	testShiftCol:
+    		li $t0, 0		# $t0 = direction to shift
+    		la $a0, matrix 		# starting address of board[][]
+		lw $a1, rows    	# number of rows in board
+		lw $a2, columns 	# number of columns in board
+		li $a3, 0		# col = 0
+		addi $sp, $sp, 4	
+		sh $t0, 0($sp)
+		jal shift_row
 		
 	exit:
     		# Terminate the program
